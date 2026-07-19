@@ -1,5 +1,8 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
+const appIcon = path.join(__dirname, '..', 'app', 'assets', 'brand-icon.png');
+
+app.setAppUserModelId('kr.ordr.helper');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -8,7 +11,8 @@ function createWindow() {
     minWidth: 1180,
     minHeight: 720,
     backgroundColor: '#0b1017',
-    title: 'ORDR 조합도우미',
+    title: 'ord local helper - sshyeri',
+    icon: appIcon,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -17,10 +21,24 @@ function createWindow() {
       sandbox: true,
     },
   });
+  win.webContents.setZoomFactor(1.4);
   win.loadFile(path.join(__dirname, '..', 'app', 'index.html'));
+  win.webContents.on('did-finish-load', () => {
+    win.webContents.setZoomFactor(1.4);
+    win.webContents.executeJavaScript("document.querySelector('#zoom-label').textContent='100%'");
+  });
   if (process.env.ORDR_SMOKE_SCREENSHOT) {
     win.webContents.once('did-finish-load', async () => {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      if (process.env.ORDR_SMOKE_COLLAPSED) {
+        await win.webContents.executeJavaScript("document.querySelector('#toggle-recommendations').click()");
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      if (process.env.ORDR_SMOKE_HOVER_ID) {
+        const id = JSON.stringify(process.env.ORDR_SMOKE_HOVER_ID);
+        await win.webContents.executeJavaScript(`(() => { const row=document.querySelector('[data-id="'+${id}+'"]'); if(!row)return; row.dispatchEvent(new MouseEvent('mouseenter',{bubbles:false,clientX:500,clientY:350})); row.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:500,clientY:350})); })()`);
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
       const image = await win.capturePage();
       require('node:fs').writeFileSync(process.env.ORDR_SMOKE_SCREENSHOT, image.toPNG());
       app.quit();
@@ -29,6 +47,14 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  ipcMain.handle('zoom:change', (event, action) => {
+    const contents = event.sender;
+    const current = contents.getZoomFactor() / 1.4;
+    const next = action === 'reset' ? 1 : Math.min(1.6, Math.max(.6, current + (action === 'in' ? .1 : -.1)));
+    contents.setZoomFactor(Math.round(next * 1.4 * 100) / 100);
+    return Math.round(next * 10) / 10;
+  });
+  ipcMain.handle('zoom:get', (event) => Math.round((event.sender.getZoomFactor() / 1.4) * 10) / 10);
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });

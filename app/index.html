@@ -3,42 +3,61 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ORDR 조합도우미</title>
+  <title>ord local helper - sshyeri</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark">O</span><div><strong>ORDR</strong><small>LOCAL MIX HELPER</small></div></div>
+    <div class="brand"><img class="brand-mark" src="assets/brand-icon.png" alt="ord local helper"><div><strong>ord local helper</strong><small>sshyeri</small></div></div>
     <label class="search"><span>⌕</span><input id="search" placeholder="유닛 검색 — Enter로 이동" autocomplete="off" /></label>
-    <div class="stat"><span>현재 보유</span><strong id="owned-total">0</strong></div>
+    <button class="ghost status-visibility" data-toggle-status aria-pressed="false" aria-label="현재 상태 창 안 보이기" title="현재 상태 창 안 보이기"></button>
+    <button id="open-exclusions" class="outline">계산 제외 설정 <span id="exclude-count">0</span></button>
     <div class="stat armor"><span>방깎 합계</span><strong id="armor-total">수치 미입력</strong></div>
     <div class="stat slow"><span>이감 합계</span><strong id="slow-total">수치 미입력</strong></div>
-    <button id="undo" class="ghost" disabled>↶ 되돌리기</button>
+    <div class="zoom-controls" aria-label="화면 배율">
+      <button id="zoom-out" title="축소 (Ctrl+-)">−</button>
+      <button id="zoom-reset" title="기본 100%로 초기화"><span id="zoom-label">100%</span></button>
+      <button id="zoom-in" title="확대 (Ctrl++)">+</button>
+    </div>
+    <button id="undo" class="ghost" disabled>↶ 되돌리기 <kbd>Z</kbd></button>
+    <button id="redo" class="ghost" disabled>↷ 앞으로 <kbd>Shift+Z</kbd></button>
     <button id="reset" class="danger">전체 초기화</button>
   </header>
 
+  <div class="top-panels">
+    <section class="status-panel" aria-label="현재 상태">
+      <div class="owned-upper" id="owned-upper" aria-label="현재 보유 중인 상위 유닛">
+        <div id="owned-upper-list" class="owned-upper-list"><span class="owned-upper-empty">보유 중인 상위 유닛 없음</span></div>
+        <div class="status-actions"><button id="open-extra-units" class="primary extra-units-button"><span class="button-icon">+</span><span>도우미에 없는 유닛</span></button><button class="status-visibility" data-toggle-status aria-pressed="false" aria-label="현재 상태 창 안 보이기" title="현재 상태 창 안 보이기"></button></div>
+      </div>
+      <div class="effect-summary" aria-label="현재 보유 유닛 효과 요약">
+        <div class="effect-total armor"><span>방깎</span><div id="armor-summary" class="effect-breakdown"><strong>0</strong></div></div>
+        <div class="effect-total slow"><span>이감</span><div id="slow-summary" class="effect-breakdown"><strong>0</strong></div></div>
+        <div class="trait-summary"><span>보유 특성</span><div id="trait-list" class="trait-list"><i>없음</i></div></div>
+      </div>
+    </section>
+    <section class="skill-filter-panel" id="skill-filter-panel">
+      <button id="toggle-skill-filter" class="skill-filter-head" aria-expanded="true"><span>유닛 스킬 필터</span><b id="skill-filter-current">전체</b><i>⌃</i></button>
+      <div id="skill-filter-options" class="skill-filter-options"></div>
+    </section>
+  </div>
+
   <main>
-    <section class="notice" id="notice">모든 데이터는 이 PC에서만 계산됩니다. 새로고침하거나 앱을 닫으면 입력값이 초기화됩니다.</section>
     <section class="workspace">
       <div class="board-wrap">
-        <div class="board-head">
-          <div><h1>보유 유닛 입력</h1><p>클릭 +1 · 우클릭 −1 · 흔함 단축키 Q W E R A S D F G</p></div>
-          <button id="open-exclusions" class="outline">계산 제외 설정 <span id="exclude-count">0</span></button>
-        </div>
         <div id="unit-board" class="unit-board" aria-live="polite"></div>
       </div>
 
       <aside class="recommendations">
-        <div class="aside-head"><div><span class="eyebrow">LIVE RESULT</span><h2>조합 후보</h2></div><span id="candidate-count" class="pill">0</span></div>
-        <div class="tabs" role="tablist">
-          <button data-filter="ready" class="active">제작 가능</button>
-          <button data-filter="near">부족 1–2</button>
-          <button data-filter="all">전체</button>
-        </div>
+        <div id="recommendations-resizer" class="recommendations-resizer" title="드래그하여 너비 조절"></div>
+        <div class="aside-head"><div class="aside-title"><span class="eyebrow">LIVE RESULT</span><h2>조합 후보</h2></div><span id="candidate-count" class="pill">0</span><button id="toggle-recommendations" class="collapse-button" aria-expanded="true" title="조합 후보 접기">›</button></div>
+        <div class="tabs"><span>진행률 80% 이상</span></div>
         <div id="candidate-list" class="candidate-list"></div>
       </aside>
     </section>
   </main>
+
+  <footer class="app-footer">Copyright © 2026 sshyeri. All rights reserved.</footer>
 
   <dialog id="exclusion-dialog">
     <form method="dialog">
@@ -49,6 +68,19 @@
       <div class="dialog-actions"><button id="clear-exclusions" type="button" class="ghost">선택 해제</button><button value="default" class="primary">적용</button></div>
     </form>
   </dialog>
+
+  <dialog id="extra-units-dialog" class="extra-units-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><span class="eyebrow">EXTRA UNITS</span><h2>도우미에 없는 유닛</h2></div><button value="cancel" class="icon-button">×</button></div>
+      <div id="extra-units-list" class="extra-units-list"></div>
+      <div class="dialog-actions"><button value="default" class="primary">닫기</button></div>
+    </form>
+  </dialog>
+
+  <div id="unit-tooltip" class="unit-tooltip" role="tooltip" hidden>
+    <div class="tooltip-head"><img alt=""><div><strong></strong><span></span></div></div>
+    <div class="tooltip-body"></div>
+  </div>
 
   <script src="core.js"></script>
   <script src="app.js"></script>

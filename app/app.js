@@ -1,7 +1,13 @@
 const state = {
-  units: [], byId: new Map(), owned: new Map(), history: [],
-  excludedIds: new Set(), excludedLevels: new Set(), candidateFilter: 'ready',
+  units: [], allUnits: [], byId: new Map(), owned: new Map(), history: [], future: [],
+  excludedIds: new Set(), excludedLevels: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), activeSkill: '',
 };
+const skillNames={damageb:'공격력 버프',speedb:'공격속도 버프',sky:'공중 공격',sstun:'단일 스턴',slow:'이동속도 감소',shield:'방어력 감소',stun:'범위 스턴',boss:'보스 피해',berserk:'광폭화',splash:'스플래시',last:'끝딜',rangetlpd:'범위 체력 비례 피해',blink:'순간이동',armorbreak:'아머브레이크',single:'단일 피해',regen:'회복',ignore:'방어 무시',docking:'마법 피해 증폭',life:'생명력',bombup:'폭발 피해',mshield:'마법 방어력 감소',udelete:'유닛 삭제',rangellpd:'범위 최대 체력 피해',rangenlpd:'범위 현재 체력 피해',singlelost:'단일 잃은 체력 피해'};
+const boardColumns = [
+  ['흔함','안흔함'], ['특별함'], ['희귀함'], ['전설적인'],
+  ['히든조합','왜곡됨','랜덤전용'], ['변화된','세라핌','제한됨'],
+  ['초월함','신비함'], ['불멸의','영원한','기타'],
+];
 const levelOrder = [1,2,3,4,5,6,7,8,9,10,18,11,12,14,15,19,20,22];
 const levelNames = {1:'흔함',2:'안흔함',3:'특별함',4:'희귀함',5:'전설적인',6:'히든조합',7:'왜곡됨',8:'랜덤전용',9:'제한됨',10:'초월함',11:'불멸의',12:'영원한',14:'특수 재료',15:'특수함',18:'신비함',19:'기록지침',20:'연구소',22:'아이템'};
 const excludedFromInput = new Set([16,184,280,286,287,301]);
@@ -9,14 +15,24 @@ const baseNames = new Map([[1,'루피'],[2,'조로'],[3,'나미'],[4,'우솝'],[
 const $ = (s) => document.querySelector(s);
 
 async function init() {
-  const response = await fetch('../data/units.seed.json');
-  state.units = (await response.json()).map((u) => baseNames.has(u.id) ? {...u, name:baseNames.get(u.id), level_text:'흔함'} : u)
-    .filter((u) => !excludedFromInput.has(u.id) && (u.level !== 14 || ORDRCore.SPECIAL_IDS.has(u.id)));
-  state.byId = new Map(state.units.map((u) => [u.id, u]));
-  bindEvents(); renderBoard(); renderExclusions(); renderAll();
+  const [seedResponse, displayResponse, detailResponse] = await Promise.all([fetch('../data/units.seed.json'), fetch('../data/unit-display.json'), fetch('../data/unit-details.json')]);
+  const seed = await seedResponse.json();
+  const display = await displayResponse.json();
+  const details = await detailResponse.json(); state.details=new Map(details.map((item)=>[item.id,item]));
+  const seedById = new Map(seed.map((u) => [u.id, u]));
+  state.allUnits = display.map((meta) => {
+    const source = seedById.get(meta.id) || {};
+    const group = meta.group.replace(/\s*\(\d+\)$/, '');
+    const name = (baseNames.get(meta.id) || meta.name).replace(/\s*\([QWERASDFG]\)$/, '');
+    return {...source, ...meta, name, group, image:`assets/units/${meta.id}.png`};
+  });
+  state.allUnits.unshift({id:ORDRCore.WISP_ID,name:'흔함선택위습',group:'흔함',level:1,level_text:'흔함',mate_ids:[],skills:[],hotkey:'V',image:'assets/units/wisp.png'});
+  state.units = state.allUnits.filter((u) => !excludedFromInput.has(u.id) && (u.group !== '기타' || ORDRCore.SPECIAL_IDS.has(u.id)) && boardColumns.flat().includes(u.group));
+  state.byId = new Map(state.allUnits.map((u) => [u.id, u]));
+  renderSkillFilter(); renderExtraUnits(); bindEvents(); renderBoard(); renderExclusions(); renderAll(); updateZoomLabel(await window.ordrDesktop.zoom.get()); requestAnimationFrame(updateStickyLayout);
 }
 
-function snapshot() { state.history.push(new Map(state.owned)); if (state.history.length > 50) state.history.shift(); }
+function snapshot() { state.history.push(new Map(state.owned)); state.future=[]; if (state.history.length > 50) state.history.shift(); }
 function changeCount(id, delta) {
   snapshot(); const next = Math.max(0, (state.owned.get(id) || 0) + delta);
   next ? state.owned.set(id, next) : state.owned.delete(id); renderAll();
@@ -24,77 +40,294 @@ function changeCount(id, delta) {
 
 function renderBoard() {
   const board = $('#unit-board'); board.innerHTML = '';
-  for (const level of levelOrder) {
-    const units = state.units.filter((u) => u.level === level);
-    if (!units.length) continue;
-    const section = document.createElement('section'); section.className = `level level-${level}`; section.dataset.level = level;
-    section.innerHTML = `<header><span>${levelNames[level] || units[0].level_text}</span><b data-level-count="${level}">0</b><label title="이 등급을 계산에서 제외"><input type="checkbox" data-exclude-level="${level}"> 제외</label></header><div class="unit-grid"></div>`;
-    const grid = section.querySelector('.unit-grid');
-    for (const unit of units.sort((a,b) => a.name.localeCompare(b.name,'ko'))) {
-      const button = document.createElement('button'); button.className = 'unit'; button.dataset.id = unit.id;
-      if (ORDRCore.SPECIAL_IDS.has(unit.id)) button.classList.add('special');
-      button.innerHTML = `<span class="unit-name">${escapeHtml(unit.name)}</span>${unit.hotkey ? `<kbd>${unit.hotkey}</kbd>` : ''}<strong data-count="${unit.id}">0</strong><i>−</i>`;
-      button.addEventListener('click', () => changeCount(unit.id, 1));
-      button.addEventListener('contextmenu', (e) => { e.preventDefault(); changeCount(unit.id, -1); });
-      button.querySelector('i').addEventListener('click', (e) => { e.stopPropagation(); changeCount(unit.id, -1); });
-      grid.append(button);
+  for (const groups of boardColumns) {
+    const column = document.createElement('div'); column.className = 'board-column';
+    for (const group of groups) {
+      const units = state.units.filter((u) => u.group === group);
+      if (!units.length) continue;
+      const level = units[0].level;
+      const section = document.createElement('section'); section.className = `level level-${level}`; section.dataset.level = level;
+      const excludeControl = group === '기타'
+        ? `<label title="기타 재료 전체를 계산에서 제외"><input type="checkbox" data-exclude-group="기타"> 제외</label>`
+        : `<label title="이 등급을 계산에서 제외"><input type="checkbox" data-exclude-level="${level}"> 제외</label>`;
+      section.innerHTML = `<header><span>${group}</span><b data-group-count="${group}">0</b>${excludeControl}</header><div class="unit-grid"></div>`;
+      const grid = section.querySelector('.unit-grid');
+      for (const unit of units) {
+      const row = document.createElement('div'); row.className = 'unit'; row.dataset.id = unit.id;
+      if (ORDRCore.SPECIAL_IDS.has(unit.id)) row.classList.add('special');
+      const shortcut = unit.hotkey ? `<kbd>${escapeHtml(unit.hotkey)}</kbd>` : '';
+      row.innerHTML = `<span class="unit-progress-fill"></span><span class="unit-image"><img src="${unit.image}" alt=""></span><span class="unit-name"><em data-progress="${unit.id}"></em>${escapeHtml(unit.name)}${shortcut}<i class="special-dot" title="기타 재료 필요"></i></span><strong data-count="${unit.id}">0</strong><button class="unit-action combine" title="조합">✓</button><button class="unit-action subtract" title="빼기">−</button>`;
+      row.addEventListener('click', () => changeCount(unit.id, 1));
+      row.querySelector('.subtract').addEventListener('click', (e) => { e.stopPropagation(); changeCount(unit.id, -1); });
+      row.querySelector('.combine').addEventListener('click', (e) => { e.stopPropagation(); craftUnit(unit.id); });
+      row.addEventListener('mouseenter',()=>showUnitTooltip(row,unit));
+      row.addEventListener('mousemove',(event)=>positionUnitTooltip(event));
+      row.addEventListener('mouseleave',hideUnitTooltip);
+      row.addEventListener('contextmenu', (e) => { e.preventDefault(); changeCount(unit.id, -1); });
+      grid.append(row);
+      }
+      column.append(section);
     }
-    board.append(section);
+    board.append(column);
   }
 }
 
 function renderAll() {
-  document.querySelectorAll('[data-count]').forEach((el) => { const n=state.owned.get(+el.dataset.count)||0; el.textContent=n; el.closest('.unit').classList.toggle('owned',n>0); });
-  document.querySelectorAll('[data-level-count]').forEach((el) => { const level=+el.dataset.levelCount; el.textContent=[...state.owned].filter(([id])=>state.byId.get(id)?.level===level).reduce((s,[,n])=>s+n,0); });
-  const total=[...state.owned.values()].reduce((a,b)=>a+b,0); $('#owned-total').textContent=total; $('#undo').disabled=!state.history.length;
-  updateEffectTotals(); renderCandidates(); updateExcludeCount();
+  document.querySelectorAll('[data-count]').forEach((el) => { const id=parseUnitId(el.dataset.count); const n=state.owned.get(id)||0; el.textContent=n; el.closest('.unit').classList.toggle('owned',n>0); });
+  document.querySelectorAll('[data-group-count]').forEach((el) => { const group=el.dataset.groupCount; el.textContent=[...state.owned].filter(([id])=>state.byId.get(id)?.group===group).reduce((s,[,n])=>s+n,0); });
+  document.querySelectorAll('[data-extra-count]').forEach((el)=>{const count=state.owned.get(+el.dataset.extraCount)||0;el.textContent=count;el.closest('.extra-unit').classList.toggle('owned',count>0);});
+  document.querySelectorAll('[data-extra-group-count]').forEach((el)=>{const level=+el.dataset.extraGroupCount;el.textContent=[...state.owned].filter(([id])=>state.byId.get(id)?.level===level).reduce((sum,[,count])=>sum+count,0);});
+  $('#undo').disabled=!state.history.length; $('#redo').disabled=!state.future.length;
+  const candidates=currentCandidates(); renderOwnedUpper(); updateEffectTotals(); updateUnitProgress(candidates); renderCandidates(candidates); updateExcludeCount(); applyUnitSkillFilter();
+}
+function renderSkillFilter(){
+  const options=$('#skill-filter-options');
+  const skills=[...new Set(state.allUnits.flatMap((unit)=>unit.skills||[]))].sort((a,b)=>(skillNames[a]||a).localeCompare(skillNames[b]||b,'ko'));
+  options.innerHTML=`<label><input type="radio" name="skill-filter" value="" checked> 전체</label>${skills.map((code)=>`<label><input type="radio" name="skill-filter" value="${escapeHtml(code)}"> ${escapeHtml(skillNames[code]||code)}</label>`).join('')}`;
+}
+function renderExtraUnits(){
+  const list=$('#extra-units-list'); list.innerHTML='';
+  for(const level of [15,19,20,22]){
+    const units=state.allUnits.filter((unit)=>unit.level===level).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+    const section=document.createElement('section'); section.className='extra-unit-group';
+    section.innerHTML=`<header><span>${escapeHtml(levelNames[level])}</span><b data-extra-group-count="${level}">0</b></header><div class="extra-unit-items"></div>`;
+    const items=section.querySelector('.extra-unit-items');
+    for(const unit of units){
+      const row=document.createElement('div'); row.className='extra-unit'; row.dataset.id=unit.id;
+      row.innerHTML=`<img src="${unit.image}" alt=""><span>${escapeHtml(unit.name)}</span><strong data-extra-count="${unit.id}">0</strong><button type="button" class="extra-add" title="추가">✓</button><button type="button" class="extra-subtract" title="빼기">−</button>`;
+      row.querySelector('.extra-add').onclick=()=>changeCount(unit.id,1); row.querySelector('.extra-subtract').onclick=()=>changeCount(unit.id,-1);
+      row.addEventListener('mouseenter',()=>showUnitTooltip(row,unit)); row.addEventListener('mousemove',positionUnitTooltip); row.addEventListener('mouseleave',hideUnitTooltip);
+      items.append(row);
+    }
+    list.append(section);
+  }
+}
+function applyUnitSkillFilter(){
+  document.querySelectorAll('.unit').forEach((row)=>{
+    const unit=state.byId.get(parseUnitId(row.dataset.id));
+    const matched=!state.activeSkill||(unit?.skills||[]).includes(state.activeSkill);
+    row.classList.toggle('skill-filter-miss',!matched);
+    row.classList.toggle('skill-filter-hit',Boolean(state.activeSkill&&matched));
+  });
+}
+function renderOwnedUpper(){
+  const list=$('#owned-upper-list');
+  const owned=[...state.owned]
+    .filter(([id,count])=>count>0&&state.byId.get(id)&&Number(state.byId.get(id).level)>3&&state.byId.get(id).group!=='기타')
+    .sort(([idA],[idB])=>categoryRank(state.byId.get(idA))-categoryRank(state.byId.get(idB))||state.byId.get(idA).name.localeCompare(state.byId.get(idB).name,'ko'));
+  if(!owned.length){list.innerHTML='<span class="owned-upper-empty">보유 중인 상위 유닛 없음</span>';return;}
+  list.innerHTML='';
+  const groups=new Map();
+  for(const entry of owned){const group=state.byId.get(entry[0]).group;if(!groups.has(group))groups.set(group,[]);groups.get(group).push(entry);}
+  for(const [groupName,entries] of groups){
+    const group=document.createElement('div'); group.className='owned-upper-group';
+    group.innerHTML=`<span class="owned-upper-label">${escapeHtml(groupName)}</span><div class="owned-upper-items"></div>`;
+    const items=group.querySelector('.owned-upper-items');
+    for(const [id,count] of entries){
+      const unit=state.byId.get(id); const item=document.createElement('div'); item.className='owned-upper-unit'; item.title=`${unit.name} ×${count}`;
+      item.innerHTML=`<img src="${unit.image}" alt="${escapeHtml(unit.name)}"><b>${count}</b>`;
+      item.addEventListener('mouseenter',()=>showUnitTooltip(item,unit));
+      item.addEventListener('mousemove',positionUnitTooltip);
+      item.addEventListener('mouseleave',hideUnitTooltip);
+      items.append(item);
+    }
+    list.append(group);
+  }
+}
+
+function currentCandidates(){return ORDRCore.buildCandidates(state.allUnits,state.owned,state.excludedIds,state.excludedLevels);}
+function updateUnitProgress(candidateItems){
+  const candidates=new Map(candidateItems.map((candidate)=>[String(candidate.unit.id),candidate]));
+  document.querySelectorAll('.unit').forEach((row)=>{
+    const candidate=candidates.get(row.dataset.id);
+    const progress=candidate?.progress||0;
+    row.style.setProperty('--progress',`${progress}%`);
+    row.classList.toggle('has-recipe',Boolean(candidate));
+    row.classList.toggle('ready-to-combine',Boolean(candidate?.ready));
+    row.classList.toggle('progress-high',progress>=90&&progress<100);
+    row.classList.toggle('progress-complete',progress===100);
+    row.classList.toggle('needs-special',Boolean(candidate?.hasSpecial));
+    const label=row.querySelector('[data-progress]'); if(label)label.textContent=candidate?`${progress}% `:'';
+    const combine=row.querySelector('.combine'); if(combine)combine.disabled=!candidate?.ready;
+  });
+}
+function craftUnit(id){
+  const candidate=currentCandidates().find((item)=>String(item.unit.id)===String(id));
+  if(!candidate?.ready)return;
+  snapshot(); if(!ORDRCore.craft(candidate,state.owned))state.history.pop(); renderAll();
 }
 
 function updateEffectTotals() {
-  const armor=[...state.owned].filter(([id,n])=>n&&state.byId.get(id)?.skills.includes('shield')).length;
-  const slow=[...state.owned].filter(([id,n])=>n&&state.byId.get(id)?.skills.includes('slow')).length;
-  $('#armor-total').textContent=armor ? `수치 미입력 · ${armor}유닛` : '—';
-  $('#slow-total').textContent=slow ? `수치 미입력 · ${slow}유닛` : '—';
+  const armorKinds=new Map(),slowKinds=new Map(),traits=new Map();
+  for(const [id,count] of state.owned){
+    const unit=state.byId.get(id); const detail=state.details.get(Number(id)); const tooltip=detail?.tooltip;
+    for(const effect of parseEffectKinds(tooltip,'방어력 감소'))armorKinds.set(effect.kind,(armorKinds.get(effect.kind)||0)+effect.value*count);
+    for(const effect of parseEffectKinds(tooltip,'이동속도 감소'))slowKinds.set(effect.kind,(slowKinds.get(effect.kind)||0)+effect.value*count);
+    for(const skill of unit?.skills||[])traits.set(skill,(traits.get(skill)||0)+count);
+  }
+  const armor=[...armorKinds.values()].reduce((a,b)=>a+b,0),slow=[...slowKinds.values()].reduce((a,b)=>a+b,0);
+  $('#armor-total').textContent=armor||'—'; $('#slow-total').textContent=slow||'—'; renderEffectBreakdown('#armor-summary',armorKinds); renderEffectBreakdown('#slow-summary',slowKinds);
+  const traitList=$('#trait-list'); traitList.innerHTML=traits.size?[...traits].sort((a,b)=>b[1]-a[1]).map(([code,count])=>`<b>${escapeHtml(skillNames[code]||code)}${count>1?` ×${count}`:''}</b>`).join(''):'<i>없음</i>';
+}
+function parseEffectKinds(tooltip,label){
+  if(!tooltip)return[]; const lines=tooltip.split('\n'); const effects=[];
+  for(let index=0;index<lines.length;index++){
+    if(!lines[index].includes(label))continue;
+    for(let cursor=index+1;cursor<Math.min(lines.length,index+4);cursor++){
+      const match=lines[cursor].match(/(.+?형식)(?:\s+최대)?\s*(-?\d+(?:\.\d+)?)/);
+      if(match){effects.push({kind:match[1].replace(/\s*형식$/,'').trim(),value:Math.abs(Number(match[2]))});break;}
+      if(/\([^)]*\)/.test(lines[cursor])&&!lines[cursor].includes('형식'))break;
+    }
+  }
+  return effects;
+}
+function renderEffectBreakdown(selector,kinds){
+  const target=$(selector); const total=[...kinds.values()].reduce((a,b)=>a+b,0);
+  target.innerHTML=`<strong>${total}</strong>${[...kinds].map(([kind,value])=>`<b title="${escapeHtml(kind)}">${escapeHtml(kind)} ${value}</b>`).join('')}`;
 }
 
-function renderCandidates() {
-  let items=ORDRCore.buildCandidates(state.units,state.owned,state.excludedIds,state.excludedLevels);
-  if(state.candidateFilter==='ready') items=items.filter((x)=>x.ready);
-  if(state.candidateFilter==='near') items=items.filter((x)=>!x.ready&&x.missingTotal<=2);
-  items=items.slice(0,80); $('#candidate-count').textContent=items.length;
+function showUnitTooltip(row,unit){
+  const tooltip=$('#unit-tooltip'); const detail=state.details.get(Number(unit.id));
+  const content=detail?.tooltip?.trim()||((unit.skills||[]).map((code)=>skillNames[code]||code).join('\n'));
+  if(!content){hideUnitTooltip();return;}
+  tooltip.querySelector('img').src=unit.image; tooltip.querySelector('strong').textContent=unit.name; tooltip.querySelector('.tooltip-head span').textContent=unit.group||unit.level_text||'';
+  const body=tooltip.querySelector('.tooltip-body'); renderTooltipBody(body,content);
+  tooltip.hidden=false; row.setAttribute('aria-describedby','unit-tooltip');
+}
+function positionUnitTooltip(event){
+  const tooltip=$('#unit-tooltip'); if(tooltip.hidden)return; const gap=14; let left=event.clientX+gap,top=event.clientY+gap;
+  const rect=tooltip.getBoundingClientRect(); if(left+rect.width>innerWidth-8)left=event.clientX-rect.width-gap; if(top+rect.height>innerHeight-8)top=innerHeight-rect.height-8;
+  tooltip.style.left=`${Math.max(8,left)}px`; tooltip.style.top=`${Math.max(8,top)}px`;
+}
+function hideUnitTooltip(){const tooltip=$('#unit-tooltip');tooltip.hidden=true;document.querySelector('[aria-describedby="unit-tooltip"]')?.removeAttribute('aria-describedby');}
+function renderTooltipBody(body,text){
+  const lines=text.split('\n').filter(Boolean); body.innerHTML='';
+  lines.forEach((line,index)=>{
+    const displayLine=line.replace(/^(해적선(?:x\d+)?) \(히든조합\)$/,'$1 (기타)');
+    const item=document.createElement('div'); item.textContent=displayLine;
+    if(/\((흔함|안흔함|특별함|희귀함|전설적인|히든조합|변화된|제한됨|초월함|불멸의|영원함|기타)\)$/.test(displayLine)){
+      item.className='tooltip-material';
+      if([...ORDRCore.SPECIAL_IDS].some((id)=>displayLine.includes(state.byId.get(id)?.name)))item.classList.add('tooltip-special-material');
+    }
+    else if(/좋아요\s*\d+/.test(displayLine))item.className=`tooltip-preference ${displayLine.includes('마법')?'magic':displayLine.includes('물리')?'physical':'story'}`;
+    else if(/형식/.test(displayLine))item.className='tooltip-detail';
+    else item.className='tooltip-trait';
+    if(item.classList.contains('tooltip-preference')&&!body.lastElementChild?.classList.contains('tooltip-preference'))item.classList.add('section-start');
+    if(index>0&&item.className==='tooltip-trait'&&body.lastElementChild?.className!=='tooltip-trait')item.classList.add('section-start');
+    body.append(item);
+  });
+}
+
+function renderCandidates(candidateItems) {
+  let items=[...candidateItems];
+  items=items.filter((item)=>item.progress>=80).sort((a,b)=>categoryRank(b.unit)-categoryRank(a.unit)||b.progress-a.progress||a.unit.name.localeCompare(b.unit.name,'ko'));
+  $('#candidate-count').textContent=items.length;
   const list=$('#candidate-list'); list.innerHTML='';
-  if(!items.length){list.innerHTML='<div class="empty"><b>표시할 조합이 없습니다</b><span>유닛을 입력하거나 다른 탭을 확인하세요.</span></div>';return;}
-  for(const c of items){
-    const card=document.createElement('article'); card.className=`candidate ${c.ready?'ready':''} ${c.hasSpecial?'needs-special':''}`;
-    const materials=c.materials.map((m)=>`<span class="material ${m.missing?'missing':''} ${m.special?'special':''}">${escapeHtml(m.material?.name||`#${m.id}`)} <b>${m.have}/${m.quantity}</b></span>`).join('');
-    card.innerHTML=`<div class="candidate-top"><div><small>${escapeHtml(levelNames[c.unit.level]||c.unit.level_text)}</small><h3>${escapeHtml(c.unit.name)}</h3></div><div class="progress"><strong>${c.progress}%</strong><span>${c.ready?'제작 가능':`부족 ${c.missingTotal}`}</span></div></div>${c.hasSpecial?'<div class="special-alert">◆ 특수 재료 필요</div>':''}<div class="materials">${materials}</div><button class="craft" ${c.ready?'':'disabled'}>조합 실행</button>`;
-    card.querySelector('.craft').addEventListener('click',()=>{snapshot(); if(!ORDRCore.craft(c,state.owned))state.history.pop(); renderAll();}); list.append(card);
+  if(!items.length){list.innerHTML='<div class="empty"><b>표시할 조합이 없습니다</b><span>진행률 80% 이상인 조합이 표시됩니다.</span></div>';return;}
+  const groups=new Map();
+  for(const item of items){const name=item.unit.group||levelNames[item.unit.level]||item.unit.level_text;if(!groups.has(name))groups.set(name,[]);groups.get(name).push(item);}
+  for(const [groupName,candidates] of groups){
+    const section=document.createElement('section'); const collapsed=state.collapsedCandidateGroups.has(groupName); section.className=`candidate-group ${collapsed?'collapsed':''}`;
+    section.innerHTML=`<button class="candidate-group-head" aria-expanded="${!collapsed}"><span>${escapeHtml(groupName)}</span><b>${candidates.length}</b><i>⌃</i></button><div class="candidate-group-list"></div>`;
+    section.querySelector('.candidate-group-head').addEventListener('click',()=>{const next=section.classList.toggle('collapsed');state.collapsedCandidateGroups[next?'add':'delete'](groupName);section.querySelector('.candidate-group-head').setAttribute('aria-expanded',String(!next));});
+    const groupList=section.querySelector('.candidate-group-list');
+    for(const c of candidates){
+      const card=document.createElement('article'); card.className=`candidate ${c.ready?'ready':''} ${c.hasSpecial?'needs-special':''}`;
+      const lacked=[...(c.lackedMaterials||new Map())];
+      const materials=lacked.length?lacked.map(([id,quantity])=>{const material=state.byId.get(id);return `<span class="material missing ${ORDRCore.SPECIAL_IDS.has(id)?'special':''}">${escapeHtml(material?.name||`#${id}`)} <b>×${quantity}</b></span>`;}).join(''):'<span class="material fulfilled">재료 충족</span>';
+      const wispUsage=c.wispUsed?`<span class="material wisp-used">선택 위습 <b>×${c.wispUsed}</b></span>`:'';
+      card.innerHTML=`<div class="candidate-top"><div><h3>${escapeHtml(c.unit.name)}</h3></div><div class="progress"><strong>${c.progress}%</strong><span>${c.ready?'제작 가능':`부족 ${c.missingTotal}`}</span></div></div>${c.hasSpecial?'<div class="special-alert">◆ 기타 재료 필요</div>':''}<div class="materials">${materials}${wispUsage}</div><button class="craft" ${c.ready?'':'disabled'}>조합 실행</button>`;
+      card.querySelector('.craft').addEventListener('click',()=>{snapshot(); if(!ORDRCore.craft(c,state.owned))state.history.pop(); renderAll();}); groupList.append(card);
+    }
+    list.append(section);
   }
 }
+function categoryRank(unit){const index=levelOrder.indexOf(unit.level);return index<0?-1:index;}
 
 function renderExclusions(){
   const levels=$('#level-exclusions'), materials=$('#material-exclusions');
   levels.innerHTML=levelOrder.filter((l)=>l!==14).map((l)=>`<label><input type="checkbox" value="${l}" data-level-option> ${levelNames[l]||l}</label>`).join('');
-  materials.innerHTML=state.units.filter((u)=>ORDRCore.SPECIAL_IDS.has(u.id)).map((u)=>`<label><input type="checkbox" value="${u.id}" data-material-option> ${escapeHtml(u.name)}</label>`).join('');
+  materials.innerHTML=state.allUnits.filter((u)=>ORDRCore.SPECIAL_IDS.has(u.id)).map((u)=>`<label><input type="checkbox" value="${u.id}" data-material-option> ${escapeHtml(u.name)}</label>`).join('');
 }
 
 function syncExclusions(){
   state.excludedLevels=new Set([...document.querySelectorAll('[data-level-option]:checked')].map((x)=>+x.value));
   state.excludedIds=new Set([...document.querySelectorAll('[data-material-option]:checked')].map((x)=>+x.value));
-  document.querySelectorAll('[data-exclude-level]').forEach((x)=>x.checked=state.excludedLevels.has(+x.dataset.excludeLevel)); renderAll();
+  document.querySelectorAll('[data-exclude-level]').forEach((x)=>x.checked=state.excludedLevels.has(+x.dataset.excludeLevel));
+  const groupBox=document.querySelector('[data-exclude-group="기타"]');
+  if(groupBox){const included=[...ORDRCore.SPECIAL_IDS];const selected=included.filter((id)=>state.excludedIds.has(id)).length;groupBox.checked=selected===included.length;groupBox.indeterminate=selected>0&&selected<included.length;}
+  renderAll();
 }
 
 function updateExcludeCount(){const n=state.excludedIds.size+state.excludedLevels.size;$('#exclude-count').textContent=n;document.body.classList.toggle('has-exclusions',n>0);}
 function bindEvents(){
   $('#reset').onclick=()=>{if(!state.owned.size)return;snapshot();state.owned.clear();renderAll();};
-  $('#undo').onclick=()=>{if(!state.history.length)return;state.owned=state.history.pop();renderAll();};
+  $('#undo').onclick=()=>{if(!state.history.length)return;state.future.push(new Map(state.owned));state.owned=state.history.pop();renderAll();};
+  $('#redo').onclick=()=>{if(!state.future.length)return;state.history.push(new Map(state.owned));state.owned=state.future.pop();renderAll();};
+  $('#zoom-out').onclick=()=>changeZoom('out');
+  $('#zoom-reset').onclick=()=>changeZoom('reset');
+  $('#zoom-in').onclick=()=>changeZoom('in');
+  document.querySelectorAll('[data-toggle-status]').forEach((button)=>button.onclick=()=>{
+    const hidden=document.body.classList.toggle('status-hidden'); updateStatusToggleButtons(hidden); requestAnimationFrame(updateStickyLayout);
+  });
+  updateStatusToggleButtons(false);
+  $('#toggle-skill-filter').onclick=()=>{const collapsed=document.body.classList.toggle('skill-filter-collapsed');$('#toggle-skill-filter').setAttribute('aria-expanded',String(!collapsed));requestAnimationFrame(updateStickyLayout);};
+  $('#toggle-recommendations').onclick=()=>{
+    const collapsed=document.body.classList.toggle('recommendations-collapsed');
+    const button=$('#toggle-recommendations');
+    button.setAttribute('aria-expanded',String(!collapsed));
+    button.title=collapsed?'조합 후보 펼치기':'조합 후보 접기';
+    button.textContent=collapsed?'‹':'›';
+  };
+  bindRecommendationResize();
+  $('#open-extra-units').onclick=()=>$('#extra-units-dialog').showModal();
   $('#open-exclusions').onclick=()=>$('#exclusion-dialog').showModal();
   $('#exclusion-dialog').addEventListener('close',syncExclusions);
   $('#clear-exclusions').onclick=()=>{document.querySelectorAll('#exclusion-dialog input').forEach((x)=>x.checked=false);};
-  document.addEventListener('change',(e)=>{if(e.target.matches('[data-exclude-level]')){const box=document.querySelector(`[data-level-option][value="${e.target.dataset.excludeLevel}"]`);if(box)box.checked=e.target.checked;syncExclusions();}});
-  document.querySelectorAll('.tabs button').forEach((b)=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.candidateFilter=b.dataset.filter;renderCandidates();});
-  $('#search').addEventListener('keydown',(e)=>{if(e.key==='Enter'){const q=e.target.value.trim().toLocaleLowerCase();const target=[...document.querySelectorAll('.unit')].find((b)=>b.querySelector('.unit-name').textContent.toLocaleLowerCase().includes(q));document.querySelectorAll('.search-hit').forEach(x=>x.classList.remove('search-hit'));if(target){target.classList.add('search-hit');target.scrollIntoView({behavior:'smooth',block:'center'});}}});
-  document.addEventListener('keydown',(e)=>{if(e.target.matches('input')||e.ctrlKey||e.altKey||e.metaKey)return;const u=state.units.find((x)=>x.hotkey===e.key.toUpperCase());if(u)changeCount(u.id,e.shiftKey?-1:1);if(e.key.toLowerCase()==='z')$('#undo').click();});
+  document.addEventListener('change',(e)=>{
+    if(e.target.matches('[name="skill-filter"]')){state.activeSkill=e.target.value;$('#skill-filter-current').textContent=state.activeSkill?(skillNames[state.activeSkill]||state.activeSkill):'전체';applyUnitSkillFilter();}
+    if(e.target.matches('[data-exclude-level]')){const box=document.querySelector(`[data-level-option][value="${e.target.dataset.excludeLevel}"]`);if(box)box.checked=e.target.checked;syncExclusions();}
+    if(e.target.matches('[data-exclude-group="기타"]')){document.querySelectorAll('[data-material-option]').forEach((box)=>box.checked=e.target.checked);syncExclusions();}
+  });
+  $('#search').addEventListener('keydown',(e)=>{
+    if(e.key!=='Enter'||e.isComposing)return;
+    const q=e.target.value.trim().toLocaleLowerCase();
+    const rows=[...document.querySelectorAll('.unit')];
+    rows.forEach((row)=>row.classList.remove('search-hit'));
+    if(!q)return;
+    const matches=rows.filter((row)=>row.querySelector('.unit-name').textContent.toLocaleLowerCase().includes(q));
+    matches.forEach((row)=>row.classList.add('search-hit'));
+    matches[0]?.scrollIntoView({behavior:'smooth',block:'center'});
+  });
+  document.addEventListener('keydown',(e)=>{
+    if(e.ctrlKey||e.metaKey){if(['+','=','-','0'].includes(e.key)){e.preventDefault();changeZoom(e.key==='-'?'out':e.key==='0'?'reset':'in');}return;}
+    if(e.target.matches('input')||e.altKey)return;
+    if(e.key.toLowerCase()==='z'){e.shiftKey?$('#redo').click():$('#undo').click();return;}
+    const u=state.units.find((x)=>x.hotkey===e.key.toUpperCase());if(u)changeCount(u.id,e.shiftKey?-1:1);
+  });
+  window.addEventListener('resize',updateStickyLayout);
 }
+function bindRecommendationResize(){
+  const handle=$('#recommendations-resizer');
+  handle.addEventListener('pointerdown',(event)=>{
+    if(document.body.classList.contains('recommendations-collapsed'))return;
+    event.preventDefault(); handle.setPointerCapture(event.pointerId); document.body.classList.add('resizing-recommendations');
+    const startX=event.clientX; const startWidth=$('.recommendations').getBoundingClientRect().width;
+    const move=(e)=>document.documentElement.style.setProperty('--recommendations-width',`${Math.max(190,Math.min(600,startWidth+startX-e.clientX))}px`);
+    const stop=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);document.body.classList.remove('resizing-recommendations');};
+    handle.addEventListener('pointermove',move); handle.addEventListener('pointerup',stop); handle.addEventListener('pointercancel',stop);
+  });
+}
+async function changeZoom(action){updateZoomLabel(await window.ordrDesktop.zoom.change(action));}
+function updateZoomLabel(factor){$('#zoom-label').textContent=`${Math.round(factor*100)}%`;}
+function updateStatusToggleButtons(hidden){
+  const title=hidden?'현재 상태 창 보이기':'현재 상태 창 안 보이기';
+  const icon=hidden
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M5 3l14 18"/></svg>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>';
+  document.querySelectorAll('[data-toggle-status]').forEach((button)=>{button.innerHTML=icon;button.title=title;button.setAttribute('aria-label',title);button.setAttribute('aria-pressed',String(hidden));});
+}
+function updateStickyLayout(){const panels=document.querySelector('.top-panels');if(!panels)return;document.documentElement.style.setProperty('--recommendations-top',`${Math.ceil(panels.getBoundingClientRect().bottom+9)}px`);}
 function escapeHtml(value){const d=document.createElement('div');d.textContent=value||'';return d.innerHTML;}
-init().catch((error)=>{$('#notice').textContent=`데이터를 불러오지 못했습니다: ${error.message}`;$('#notice').classList.add('error');});
+function parseUnitId(value){return value===ORDRCore.WISP_ID?ORDRCore.WISP_ID:+value;}
+init().catch((error)=>{$('#owned-upper-list').innerHTML=`<span class="owned-upper-error">데이터를 불러오지 못했습니다: ${escapeHtml(error.message)}</span>`;});
