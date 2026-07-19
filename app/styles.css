@@ -68,7 +68,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .primary { border-color: var(--teal); background: var(--teal); color: #06110e; font-weight: 800; }
 
 .owned-upper { position: relative; min-height: 54px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 3px 130px; }
-.owned-upper-list { min-width: 0; display: flex; align-items: flex-start; justify-content: center; gap: 10px; overflow: hidden; }
+.owned-upper-list { min-width: 0; display: flex; align-items: flex-start; justify-content: center; gap: 10px; padding: 7px 10px 4px; overflow: hidden; box-sizing: border-box; }
 .owned-upper-empty { padding-left: 5px; color: var(--muted); font-size: 11px; }
 .owned-upper-error { padding-left: 5px; color: var(--red); }
 .owned-upper-group { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 2px; }
@@ -230,13 +230,12 @@ dialog h3 { margin: 14px 0 6px; font-size: 11px; }
 .extra-unit-group > header { height: 27px; display: flex; align-items: center; justify-content: center; gap: 6px; background: #1b65c9; color: #fff; font-weight: 800; }
 .extra-unit-group > header b { min-width: 17px; padding: 1px 4px; border-radius: 8px; background: rgba(0,0,0,.22); font-size: 9px; text-align: center; }
 .extra-unit-items { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1px; padding: 3px; background: #0d141d; }
-.extra-unit { height: 28px; display: grid; grid-template-columns: 24px minmax(0,1fr) 18px 18px 18px; align-items: center; gap: 2px; padding: 1px 2px; background: #121c27; }
+.extra-unit { height: 28px; display: grid; grid-template-columns: 24px minmax(0,1fr) 18px 18px; align-items: center; gap: 2px; padding: 1px 2px; background: #121c27; cursor: pointer; }
 .extra-unit.owned { background: #12302a; }
 .extra-unit img { width: 24px; height: 24px; border-radius: 3px; object-fit: cover; }
 .extra-unit > span { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .extra-unit strong, .extra-unit button { width: 18px; height: 22px; display: grid; place-items: center; padding: 0; border: 1px solid #34404d; border-radius: 4px; background: transparent; font-size: 11px; }
 .extra-unit.owned strong { border-color: #2e8f78; color: var(--teal); }
-.extra-unit .extra-add { border-color: #2e8f78; color: var(--teal); font-weight: 900; }
 .extra-unit .extra-subtract { border-color: #8a3c49; color: var(--red); font-size: 13px; font-weight: 900; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 18px; }
 .has-exclusions #open-exclusions { border-color: var(--amber); color: var(--amber); }

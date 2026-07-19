@@ -94,8 +94,10 @@ function renderExtraUnits(){
     const items=section.querySelector('.extra-unit-items');
     for(const unit of units){
       const row=document.createElement('div'); row.className='extra-unit'; row.dataset.id=unit.id;
-      row.innerHTML=`<img src="${unit.image}" alt=""><span>${escapeHtml(unit.name)}</span><strong data-extra-count="${unit.id}">0</strong><button type="button" class="extra-add" title="추가">✓</button><button type="button" class="extra-subtract" title="빼기">−</button>`;
-      row.querySelector('.extra-add').onclick=()=>changeCount(unit.id,1); row.querySelector('.extra-subtract').onclick=()=>changeCount(unit.id,-1);
+      row.innerHTML=`<img src="${unit.image}" alt=""><span>${escapeHtml(unit.name)}</span><strong data-extra-count="${unit.id}">0</strong><button type="button" class="extra-subtract" title="빼기">−</button>`;
+      row.addEventListener('click',()=>changeCount(unit.id,1));
+      row.addEventListener('contextmenu',(event)=>{event.preventDefault();changeCount(unit.id,-1);});
+      row.querySelector('.extra-subtract').addEventListener('click',(event)=>{event.stopPropagation();changeCount(unit.id,-1);});
       row.addEventListener('mouseenter',()=>showUnitTooltip(row,unit)); row.addEventListener('mousemove',positionUnitTooltip); row.addEventListener('mouseleave',hideUnitTooltip);
       items.append(row);
     }
