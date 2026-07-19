@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ORDR 조합도우미</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">O</span><div><strong>ORDR</strong><small>LOCAL MIX HELPER</small></div></div>
+    <label class="search"><span>⌕</span><input id="search" placeholder="유닛 검색 — Enter로 이동" autocomplete="off" /></label>
+    <div class="stat"><span>현재 보유</span><strong id="owned-total">0</strong></div>
+    <div class="stat armor"><span>방깎 합계</span><strong id="armor-total">수치 미입력</strong></div>
+    <div class="stat slow"><span>이감 합계</span><strong id="slow-total">수치 미입력</strong></div>
+    <button id="undo" class="ghost" disabled>↶ 되돌리기</button>
+    <button id="reset" class="danger">전체 초기화</button>
+  </header>
+
+  <main>
+    <section class="notice" id="notice">모든 데이터는 이 PC에서만 계산됩니다. 새로고침하거나 앱을 닫으면 입력값이 초기화됩니다.</section>
+    <section class="workspace">
+      <div class="board-wrap">
+        <div class="board-head">
+          <div><h1>보유 유닛 입력</h1><p>클릭 +1 · 우클릭 −1 · 흔함 단축키 Q W E R A S D F G</p></div>
+          <button id="open-exclusions" class="outline">계산 제외 설정 <span id="exclude-count">0</span></button>
+        </div>
+        <div id="unit-board" class="unit-board" aria-live="polite"></div>
+      </div>
+
+      <aside class="recommendations">
+        <div class="aside-head"><div><span class="eyebrow">LIVE RESULT</span><h2>조합 후보</h2></div><span id="candidate-count" class="pill">0</span></div>
+        <div class="tabs" role="tablist">
+          <button data-filter="ready" class="active">제작 가능</button>
+          <button data-filter="near">부족 1–2</button>
+          <button data-filter="all">전체</button>
+        </div>
+        <div id="candidate-list" class="candidate-list"></div>
+      </aside>
+    </section>
+  </main>
+
+  <dialog id="exclusion-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><span class="eyebrow">CALCULATION</span><h2>계산 제외 설정</h2></div><button value="cancel" class="icon-button">×</button></div>
+      <p>선택한 등급과 재료는 조합의 필요 수량 및 부족 수량에서 제외됩니다.</p>
+      <h3>등급 제외</h3><div id="level-exclusions" class="check-grid"></div>
+      <h3>재료 개별 제외</h3><div id="material-exclusions" class="check-grid material-checks"></div>
+      <div class="dialog-actions"><button id="clear-exclusions" type="button" class="ghost">선택 해제</button><button value="default" class="primary">적용</button></div>
+    </form>
+  </dialog>
+
+  <script src="core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
