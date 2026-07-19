@@ -8,7 +8,11 @@
     "start": "electron .",
     "test": "node --test tests/core.test.cjs",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder --win nsis"
+    "dist": "electron-builder --win nsis",
+    "release": "electron-builder --win nsis --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.5"
   },
   "devDependencies": {
     "electron": "^33.4.11",
@@ -17,9 +21,21 @@
   "build": {
     "appId": "kr.ordr.helper",
     "productName": "ord local helper - sshyeri",
-    "directories": { "buildResources": "build" },
-    "files": ["electron/**/*", "app/**/*", "data/*.json", "package.json"],
-    "win": { "target": "nsis", "icon": "build/icon.ico", "signAndEditExecutable": true },
+    "publish": [{ "provider": "github", "owner": "sshyeri", "repo": "ordr-desktop" }],
+    "directories": {
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "app/**/*",
+      "data/*.json",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

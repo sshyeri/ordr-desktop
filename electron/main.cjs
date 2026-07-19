@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const appIcon = path.join(__dirname, '..', 'app', 'assets', 'brand-icon.png');
 
@@ -44,6 +45,31 @@ function createWindow() {
       app.quit();
     });
   }
+  return win;
+}
+
+function setupAutoUpdates(win) {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('error', (error) => console.error('Auto update failed:', error));
+  autoUpdater.on('update-downloaded', async (info) => {
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'info',
+      buttons: ['지금 재시작', '나중에'],
+      defaultId: 0,
+      cancelId: 1,
+      title: '업데이트 준비 완료',
+      message: `새 버전 ${info.version} 다운로드가 완료되었습니다.`,
+      detail: '지금 재시작하면 업데이트가 자동으로 설치됩니다. 나중에를 선택하면 앱을 종료할 때 설치됩니다.',
+      noLink: true,
+    });
+    if (response === 0) autoUpdater.quitAndInstall(false, true);
+  });
+  const check = () => autoUpdater.checkForUpdates().catch((error) => console.error('Update check failed:', error));
+  setTimeout(check, 5000);
+  const updateTimer = setInterval(check, 6 * 60 * 60 * 1000);
+  updateTimer.unref();
 }
 
 app.whenReady().then(() => {
@@ -55,7 +81,8 @@ app.whenReady().then(() => {
     return Math.round(next * 10) / 10;
   });
   ipcMain.handle('zoom:get', (event) => Math.round((event.sender.getZoomFactor() / 1.4) * 10) / 10);
-  createWindow();
+  const win = createWindow();
+  setupAutoUpdates(win);
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
 
