@@ -55,7 +55,7 @@ function renderBoard() {
       for (const unit of units) {
       const row = document.createElement('div'); row.className = 'unit'; row.dataset.id = unit.id;
       if (ORDRCore.SPECIAL_IDS.has(unit.id)) row.classList.add('special');
-      const shortcut = unit.hotkey ? `<kbd>${escapeHtml(unit.hotkey)}</kbd>` : '';
+      const shortcut = unit.hotkey ? `<kbd title="${escapeHtml(unit.hotkey)}: +1 / Shift+${escapeHtml(unit.hotkey)}: -1">${escapeHtml(unit.hotkey)}</kbd>` : '';
       row.innerHTML = `<span class="unit-progress-fill"></span><span class="unit-image"><img src="${unit.image}" alt=""></span><span class="unit-name"><em data-progress="${unit.id}"></em>${escapeHtml(unit.name)}${shortcut}<i class="special-dot" title="기타 재료 필요"></i></span><strong data-count="${unit.id}">0</strong><button class="unit-action combine" title="조합">✓</button><button class="unit-action subtract" title="빼기">−</button>`;
       row.addEventListener('click', () => changeCount(unit.id, 1));
       row.querySelector('.subtract').addEventListener('click', (e) => { e.stopPropagation(); changeCount(unit.id, -1); });
@@ -317,7 +317,9 @@ function bindEvents(){
     if(e.ctrlKey||e.metaKey){if(['+','=','-','0'].includes(e.key)){e.preventDefault();changeZoom(e.key==='-'?'out':e.key==='0'?'reset':'in');}return;}
     if(e.target.matches('input')||e.altKey)return;
     if(e.key.toLowerCase()==='z'){e.shiftKey?$('#redo').click():$('#undo').click();return;}
-    const u=state.units.find((x)=>x.hotkey===e.key.toUpperCase());if(u)changeCount(u.id,e.shiftKey?-1:1);
+    const pressedHotkey=e.code.startsWith('Key')?e.code.slice(3):e.key.toUpperCase();
+    const u=state.units.find((x)=>x.hotkey===pressedHotkey);
+    if(u){e.preventDefault();changeCount(u.id,e.shiftKey?-1:1);}
   });
   window.addEventListener('resize',updateStickyLayout);
 }
