@@ -8,7 +8,7 @@
     "start": "electron .",
     "test": "node --test tests/core.test.cjs",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder --win portable"
+    "dist": "electron-builder --win nsis"
   },
   "devDependencies": {
     "electron": "^33.4.11",
@@ -19,6 +19,13 @@
     "productName": "ord local helper - sshyeri",
     "directories": { "buildResources": "build" },
     "files": ["electron/**/*", "app/**/*", "data/*.json", "package.json"],
-    "win": { "target": "portable", "icon": "build/icon.ico", "signAndEditExecutable": true }
+    "win": { "target": "nsis", "icon": "build/icon.ico", "signAndEditExecutable": true },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ord local helper - sshyeri"
+    }
   }
 }
