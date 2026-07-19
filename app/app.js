@@ -124,7 +124,7 @@ function renderOwnedUpper(){
     group.innerHTML=`<span class="owned-upper-label">${escapeHtml(groupName)}</span><div class="owned-upper-items"></div>`;
     const items=group.querySelector('.owned-upper-items');
     for(const [id,count] of entries){
-      const unit=state.byId.get(id); const item=document.createElement('div'); item.className='owned-upper-unit'; item.title=`${unit.name} ×${count}`;
+      const unit=state.byId.get(id); const item=document.createElement('div'); item.className='owned-upper-unit'; item.dataset.id=unit.id; item.title=`${unit.name} ×${count}`;
       item.innerHTML=`<img src="${unit.image}" alt="${escapeHtml(unit.name)}"><b>${count}</b>`;
       item.addEventListener('mouseenter',()=>showUnitTooltip(item,unit));
       item.addEventListener('mousemove',positionUnitTooltip);
@@ -167,8 +167,20 @@ function updateEffectTotals() {
   }
   const armor=[...armorKinds.values()].reduce((a,b)=>a+b,0),slow=[...slowKinds.values()].reduce((a,b)=>a+b,0);
   $('#armor-total').textContent=armor||'—'; $('#slow-total').textContent=slow||'—'; renderEffectBreakdown('#armor-summary',armorKinds); renderEffectBreakdown('#slow-summary',slowKinds);
-  const traitList=$('#trait-list'); traitList.innerHTML=traits.size?[...traits].sort((a,b)=>b[1]-a[1]).map(([code,count])=>`<b>${escapeHtml(skillNames[code]||code)}${count>1?` ×${count}`:''}</b>`).join(''):'<i>없음</i>';
+  const traitList=$('#trait-list');
+  traitList.innerHTML=traits.size?[...traits].sort((a,b)=>b[1]-a[1]).map(([code,count])=>`<b data-trait-code="${escapeHtml(code)}">${escapeHtml(skillNames[code]||code)}${count>1?` ×${count}`:''}</b>`).join(''):'<i>없음</i>';
+  traitList.querySelectorAll('[data-trait-code]').forEach((badge)=>{
+    badge.addEventListener('mouseenter',()=>highlightTraitUnits(badge.dataset.traitCode));
+    badge.addEventListener('mouseleave',clearTraitUnitHighlight);
+  });
 }
+function highlightTraitUnits(code){
+  document.querySelectorAll('.owned-upper-unit').forEach((item)=>{
+    const unit=state.byId.get(parseUnitId(item.dataset.id));
+    item.classList.toggle('trait-highlight',(unit?.skills||[]).includes(code));
+  });
+}
+function clearTraitUnitHighlight(){document.querySelectorAll('.owned-upper-unit.trait-highlight').forEach((item)=>item.classList.remove('trait-highlight'));}
 function parseEffectKinds(tooltip,label){
   if(!tooltip)return[]; const lines=tooltip.split('\n'); const effects=[];
   for(let index=0;index<lines.length;index++){

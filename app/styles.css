@@ -49,8 +49,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .effect-total.armor .effect-breakdown b { color: #ffd477; background: #302615; }
 .effect-total.slow .effect-breakdown b { color: #91c5ff; background: #14263a; }
 .trait-summary { min-width: 0; display: flex; align-items: center; gap: 8px; }
-.trait-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 28px; overflow: auto; }
-.trait-list b { padding: 3px 6px; border: 1px solid #33465a; border-radius: 10px; background: #182533; color: #c8d5e2; font-size: 10px; white-space: nowrap; }
+.trait-list { display: flex; flex-wrap: wrap; gap: 4px; overflow: visible; }
+.trait-list b { padding: 3px 6px; border: 1px solid #33465a; border-radius: 10px; background: #182533; color: #c8d5e2; font-size: 10px; white-space: nowrap; cursor: default; transition: border-color .15s, color .15s, background .15s; }
+.trait-list b:hover { border-color: #f0c765; background: #30291c; color: #ffe8a3; }
 .trait-list i { color: #627285; font-size: 11px; font-style: normal; }
 .zoom-controls { display: grid; grid-template-columns: 28px 48px 28px; height: 32px; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; }
 .zoom-controls button { border: 0; border-right: 1px solid var(--line); background: var(--panel); color: var(--muted); }
@@ -75,6 +76,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .owned-upper-items { display: flex; align-items: center; gap: 4px; }
 .owned-upper-unit { position: relative; flex: 0 0 32px; width: 32px; height: 32px; }
 .owned-upper-unit img { width: 32px; height: 32px; border-radius: 4px; object-fit: cover; background: #283442; }
+.owned-upper-unit.trait-highlight { z-index: 2; animation: trait-unit-sparkle .75s ease-in-out infinite alternate; }
+.owned-upper-unit.trait-highlight img { outline: 2px solid #ffe27a; outline-offset: 1px; }
+.owned-upper-unit.trait-highlight::after { content: '✦'; position: absolute; z-index: 3; right: -5px; top: -7px; color: #fff3a6; font-size: 13px; line-height: 1; text-shadow: 0 0 4px #fff, 0 0 9px #f7bd35; animation: trait-sparkle .55s ease-in-out infinite alternate; pointer-events: none; }
+@keyframes trait-unit-sparkle { from { filter: brightness(1); transform: translateY(0); } to { filter: brightness(1.35) drop-shadow(0 0 5px #f7c948); transform: translateY(-1px); } }
+@keyframes trait-sparkle { from { opacity: .5; transform: scale(.7) rotate(-12deg); } to { opacity: 1; transform: scale(1.15) rotate(10deg); } }
 .owned-upper-unit b { position: absolute; right: -2px; bottom: -2px; min-width: 14px; height: 14px; display: grid; place-items: center; padding: 0 3px; border-radius: 8px; background: var(--teal); color: #07110f; font-size: 9px; box-shadow: 0 0 0 1px var(--panel); }
 .status-actions { position: absolute; right: 48px; top: 50%; display: flex; align-items: center; gap: 4px; transform: translateY(-50%); }
 .status-actions .primary, .status-actions .outline { height: 28px; min-height: 28px; padding: 0 8px; border-radius: 6px; font-size: 9px; }
