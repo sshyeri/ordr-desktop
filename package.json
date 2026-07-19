@@ -1,8 +1,8 @@
 {
   "name": "ordr-desktop",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
-  "description": "원랜디 로컬 조합 도우미",
+  "description": "ord local helper - sshyeri",
   "main": "electron/main.cjs",
   "scripts": {
     "start": "electron .",
@@ -16,8 +16,9 @@
   },
   "build": {
     "appId": "kr.ordr.helper",
-    "productName": "ORDR 조합도우미",
-    "files": ["electron/**/*", "app/**/*", "data/units.seed.json", "package.json"],
-    "win": { "target": "portable" }
+    "productName": "ord local helper - sshyeri",
+    "directories": { "buildResources": "build" },
+    "files": ["electron/**/*", "app/**/*", "data/*.json", "package.json"],
+    "win": { "target": "portable", "icon": "build/icon.ico", "signAndEditExecutable": true }
   }
 }

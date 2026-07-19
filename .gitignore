@@ -2,6 +2,7 @@ node_modules/
 dist/
 release/
 artifacts/
+tmp/
 *.log
 __pycache__/
 *.pyc
