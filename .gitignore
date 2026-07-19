@@ -3,3 +3,5 @@ dist/
 release/
 artifacts/
 *.log
+__pycache__/
+*.pyc
