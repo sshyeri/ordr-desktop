@@ -1,6 +1,6 @@
 const state = {
   units: [], allUnits: [], byId: new Map(), owned: new Map(), history: [], future: [],
-  excludedIds: new Set(), excludedLevels: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), activeSkill: '',
+  excludedIds: new Set(), excludedLevels: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), collapsedUnitGroups: new Set(), activeSkill: '',
 };
 const skillNames={damageb:'공격력 버프',speedb:'공격속도 버프',sky:'공중 공격',sstun:'단일 스턴',slow:'이동속도 감소',shield:'방어력 감소',stun:'범위 스턴',boss:'보스 피해',berserk:'광폭화',splash:'스플래시',last:'끝딜',rangetlpd:'범위 체력 비례 피해',blink:'순간이동',armorbreak:'아머브레이크',single:'단일 피해',regen:'회복',ignore:'방어 무시',docking:'마법 피해 증폭',life:'생명력',bombup:'폭발 피해',mshield:'마법 방어력 감소',udelete:'유닛 삭제',rangellpd:'범위 최대 체력 피해',rangenlpd:'범위 현재 체력 피해',singlelost:'단일 잃은 체력 피해'};
 const boardColumns = [
@@ -11,6 +11,7 @@ const boardColumns = [
 const levelOrder = [1,2,3,4,5,6,7,8,9,10,18,11,12,14,15,19,20,22];
 const levelNames = {1:'흔함',2:'안흔함',3:'특별함',4:'희귀함',5:'전설적인',6:'히든조합',7:'왜곡됨',8:'랜덤전용',9:'제한됨',10:'초월함',11:'불멸의',12:'영원한',14:'특수 재료',15:'특수함',18:'신비함',19:'기록지침',20:'연구소',22:'아이템'};
 const excludedFromInput = new Set([16,184,280,286,287,301]);
+const terminalUpgradeGroups = new Set(['불멸의','초월함','왜곡됨','신비함']);
 const baseNames = new Map([[1,'루피'],[2,'조로'],[3,'나미'],[4,'우솝'],[5,'상디'],[6,'쵸파'],[7,'칼병'],[8,'총병'],[9,'버기']]);
 const $ = (s) => document.querySelector(s);
 
@@ -46,20 +47,29 @@ function renderBoard() {
       const units = state.units.filter((u) => u.group === group);
       if (!units.length) continue;
       const level = units[0].level;
-      const section = document.createElement('section'); section.className = `level level-${level}`; section.dataset.level = level;
+      const section = document.createElement('section'); section.className = `level level-${level}`; section.dataset.level = level; section.dataset.group=group;
+      if(state.collapsedUnitGroups.has(group))section.classList.add('collapsed');
       const excludeControl = group === '기타'
         ? `<label title="기타 재료 전체를 계산에서 제외"><input type="checkbox" data-exclude-group="기타"> 제외</label>`
         : `<label title="이 등급을 계산에서 제외"><input type="checkbox" data-exclude-level="${level}"> 제외</label>`;
-      section.innerHTML = `<header><span>${group}</span><b data-group-count="${group}">0</b>${excludeControl}</header><div class="unit-grid"></div>`;
+      section.innerHTML = `<header><button type="button" class="level-collapse" aria-expanded="${!section.classList.contains('collapsed')}" title="${escapeHtml(group)} 접기/펼치기"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10l5-5 5 5"/></svg></button><span>${group}</span>${excludeControl}</header><div class="unit-grid"></div>`;
+      section.querySelector('.level-collapse').addEventListener('click',(event)=>{
+        event.stopPropagation(); const collapsed=section.classList.toggle('collapsed');
+        state.collapsedUnitGroups[collapsed?'add':'delete'](group);
+        event.currentTarget.setAttribute('aria-expanded',String(!collapsed));
+      });
       const grid = section.querySelector('.unit-grid');
       for (const unit of units) {
       const row = document.createElement('div'); row.className = 'unit'; row.dataset.id = unit.id;
       if (ORDRCore.SPECIAL_IDS.has(unit.id)) row.classList.add('special');
       const shortcut = unit.hotkey ? `<kbd title="${escapeHtml(unit.hotkey)}: +1 / Shift+${escapeHtml(unit.hotkey)}: -1">${escapeHtml(unit.hotkey)}</kbd>` : '';
-      row.innerHTML = `<span class="unit-progress-fill"></span><span class="unit-image"><img src="${unit.image}" alt=""></span><span class="unit-name"><em data-progress="${unit.id}"></em>${escapeHtml(unit.name)}${shortcut}<i class="special-dot" title="기타 재료 필요"></i></span><strong data-count="${unit.id}">0</strong><button class="unit-action combine" title="조합">✓</button><button class="unit-action subtract" title="빼기">−</button>`;
+      const canShowUpgrades=Number(unit.level)>=3&&!terminalUpgradeGroups.has(unit.group);
+      row.classList.toggle('no-upgrade-route',!canShowUpgrades);
+      row.innerHTML = `<span class="unit-progress-fill"></span><span class="unit-image"><img src="${unit.image}" alt=""></span><span class="unit-name"><em data-progress="${unit.id}"></em>${escapeHtml(unit.name)}${shortcut}<i class="special-dot" title="기타 재료 필요"></i></span><button class="unit-action combine" title="조합">✓</button><button class="unit-action subtract" title="빼기">−</button>${canShowUpgrades?`<button class="unit-action upgrade-route" title="상위 조합 보기" aria-label="${escapeHtml(unit.name)} 상위 조합 보기">↗</button>`:''}<strong data-count="${unit.id}">0</strong>`;
       row.addEventListener('click', () => changeCount(unit.id, 1));
       row.querySelector('.subtract').addEventListener('click', (e) => { e.stopPropagation(); changeCount(unit.id, -1); });
       row.querySelector('.combine').addEventListener('click', (e) => { e.stopPropagation(); craftUnit(unit.id); });
+      if(canShowUpgrades)row.querySelector('.upgrade-route').addEventListener('click',(e)=>{e.stopPropagation();showUpgradePaths(unit);});
       row.addEventListener('mouseenter',()=>showUnitTooltip(row,unit));
       row.addEventListener('mousemove',(event)=>positionUnitTooltip(event));
       row.addEventListener('mouseleave',hideUnitTooltip);
@@ -74,7 +84,6 @@ function renderBoard() {
 
 function renderAll() {
   document.querySelectorAll('[data-count]').forEach((el) => { const id=parseUnitId(el.dataset.count); const n=state.owned.get(id)||0; el.textContent=n; el.closest('.unit').classList.toggle('owned',n>0); });
-  document.querySelectorAll('[data-group-count]').forEach((el) => { const group=el.dataset.groupCount; el.textContent=[...state.owned].filter(([id])=>state.byId.get(id)?.group===group).reduce((s,[,n])=>s+n,0); });
   document.querySelectorAll('[data-extra-count]').forEach((el)=>{const count=state.owned.get(+el.dataset.extraCount)||0;el.textContent=count;el.closest('.extra-unit').classList.toggle('owned',count>0);});
   document.querySelectorAll('[data-extra-group-count]').forEach((el)=>{const level=+el.dataset.extraGroupCount;el.textContent=[...state.owned].filter(([id])=>state.byId.get(id)?.level===level).reduce((sum,[,count])=>sum+count,0);});
   $('#undo').disabled=!state.history.length; $('#redo').disabled=!state.future.length;
@@ -104,6 +113,141 @@ function renderExtraUnits(){
     list.append(section);
   }
 }
+function collectUpgradeTargets(source){
+  const sourceRank=categoryRank(source), depths=new Map([[source.id,0]]), queue=[source.id];
+  while(queue.length){
+    const materialId=queue.shift(), nextDepth=depths.get(materialId)+1;
+    for(const unit of state.units){
+      if(categoryRank(unit)<=sourceRank||!(unit.mate_ids||[]).includes(materialId))continue;
+      if(depths.has(unit.id)&&depths.get(unit.id)<=nextDepth)continue;
+      depths.set(unit.id,nextDepth); queue.push(unit.id);
+    }
+  }
+  return [...depths].filter(([id])=>id!==source.id).map(([id,depth])=>({unit:state.byId.get(id),depth})).filter((item)=>item.unit)
+    .sort((a,b)=>categoryRank(a.unit)-categoryRank(b.unit)||a.depth-b.depth||a.unit.name.localeCompare(b.unit.name,'ko'));
+}
+function showUpgradePaths(source){
+  const dialog=$('#upgrade-path-dialog'), sourceBox=$('#upgrade-path-source'), viewport=$('#upgrade-path-list');
+  if($('#unit-tooltip').parentElement!==dialog)dialog.append($('#unit-tooltip'));
+  $('#upgrade-path-title').textContent=`${source.name} - ${source.group||source.level_text||'상위 조합'}`;
+  renderUpgradeSummary(sourceBox,source);
+  const targets=collectUpgradeTargets(source); viewport.innerHTML='';
+  if(!targets.length){viewport.innerHTML='<div class="upgrade-path-empty">이어지는 상위 조합이 없습니다.</div>';if(!dialog.open)dialog.showModal();return;}
+  const nodes=[{unit:source,depth:0},...targets], nodeIds=new Set(nodes.map(({unit})=>unit.id));
+  const edges=new Map();
+  for(const {unit} of targets)for(const materialId of new Set(unit.mate_ids||[]))if(nodeIds.has(materialId))edges.set(`${materialId}-${unit.id}`,{from:materialId,to:unit.id});
+  const rows=new Map();
+  for(const node of nodes){if(!rows.has(node.depth))rows.set(node.depth,[]);rows.get(node.depth).push(node);}
+  for(const row of rows.values())row.sort((a,b)=>categoryRank(a.unit)-categoryRank(b.unit)||a.unit.name.localeCompare(b.unit.name,'ko'));
+  const nodeWidth=50,nodeHeight=42,siblingGap=9,branchGap=38,rowGap=66,sidePadding=24,topPadding=36;
+  const nodeById=new Map(nodes.map((node)=>[node.unit.id,node])),primaryChildren=new Map(nodes.map((node)=>[node.unit.id,[]])),primaryParent=new Map();
+  const normalizedName=(name)=>String(name||'').replace(/[^가-힣a-z0-9]/gi,'').toLowerCase();
+  for(const node of nodes.filter((item)=>item.depth>0).sort((a,b)=>a.depth-b.depth)){
+    const candidates=[...edges.values()].filter((edge)=>edge.to===node.unit.id&&nodeById.get(edge.from)?.depth===node.depth-1).map((edge)=>edge.from);
+    candidates.sort((a,b)=>{
+      const childName=normalizedName(node.unit.name),aName=normalizedName(nodeById.get(a)?.unit.name),bName=normalizedName(nodeById.get(b)?.unit.name);
+      const aMatch=aName&&(childName.includes(aName)||aName.includes(childName))?aName.length:0,bMatch=bName&&(childName.includes(bName)||bName.includes(childName))?bName.length:0;
+      return bMatch-aMatch||(primaryChildren.get(a)?.length||0)-(primaryChildren.get(b)?.length||0)||String(a).localeCompare(String(b));
+    });
+    const parent=candidates[0]??source.id; primaryParent.set(node.unit.id,parent); primaryChildren.get(parent)?.push(node.unit.id);
+  }
+  for(const children of primaryChildren.values())children.sort((a,b)=>categoryRank(nodeById.get(a).unit)-categoryRank(nodeById.get(b).unit)||nodeById.get(a).unit.name.localeCompare(nodeById.get(b).unit.name,'ko'));
+  const subtreeWidths=new Map();
+  const measureSubtree=(id)=>{
+    const children=primaryChildren.get(id)||[]; if(!children.length){subtreeWidths.set(id,nodeWidth);return nodeWidth;}
+    const gap=id===source.id?branchGap:siblingGap,total=children.reduce((sum,child)=>sum+measureSubtree(child),0)+gap*(children.length-1);
+    const width=Math.max(nodeWidth,total); subtreeWidths.set(id,width); return width;
+  };
+  const rootWidth=measureSubtree(source.id),canvasWidth=Math.max(1080,sidePadding*2+rootWidth);
+  const canvas=document.createElement('div'); canvas.className='upgrade-graph-canvas';
+  canvas.style.width=`${canvasWidth}px`;
+  const positions=new Map();
+  const placeSubtree=(id,left)=>{
+    const node=nodeById.get(id),width=subtreeWidths.get(id)||nodeWidth,children=primaryChildren.get(id)||[],gap=id===source.id?branchGap:siblingGap;
+    let cursor=left;
+    for(const child of children){placeSubtree(child,cursor);cursor+=(subtreeWidths.get(child)||nodeWidth)+gap;}
+    positions.set(id,{x:left+(width-nodeWidth)/2,y:topPadding+node.depth*(nodeHeight+rowGap),node});
+  };
+  placeSubtree(source.id,(canvasWidth-rootWidth)/2);
+  const maxDepth=Math.max(...rows.keys());
+  canvas.style.height=`${topPadding+(maxDepth+1)*nodeHeight+maxDepth*rowGap+38}px`;
+  const displayEdges=[...edges.values()].filter((edge)=>primaryParent.get(edge.to)===edge.from);
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.classList.add('upgrade-graph-lines'); svg.setAttribute('width',canvas.style.width); svg.setAttribute('height',canvas.style.height);
+  for(const {from,to} of displayEdges){
+    const a=positions.get(from),b=positions.get(to); if(!a||!b)continue;
+    const startX=a.x+nodeWidth/2,startY=a.y+nodeHeight,endX=b.x+nodeWidth/2,endY=b.y,midY=startY+(endY-startY)/2;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path'); path.setAttribute('d',`M ${startX} ${startY} V ${midY} H ${endX} V ${endY}`); path.dataset.from=from; path.dataset.to=to; svg.append(path);
+  }
+  canvas.append(svg);
+  for(const [id,{x,y,node}] of positions){
+    const item=document.createElement('button'); item.type='button'; item.className=`upgrade-graph-node${id===source.id?' source':''}`; item.dataset.id=id; item.style.left=`${x}px`; item.style.top=`${y}px`;
+    item.setAttribute('aria-label',`${node.unit.name} - ${node.unit.group||node.unit.level_text||''}`);
+    item.innerHTML=`<img src="${node.unit.image}" alt="">`;
+    if(id!==source.id)item.addEventListener('click',()=>{hideUnitTooltip();showUpgradePaths(node.unit);});
+    item.addEventListener('mouseenter',(event)=>{focusUpgradeGraph(canvas,id);showUnitTooltip(item,node.unit);positionUnitTooltip(event);});
+    item.addEventListener('mousemove',positionUnitTooltip);
+    item.addEventListener('mouseleave',()=>{focusUpgradeGraph(canvas,null);hideUnitTooltip();});
+    canvas.append(item);
+  }
+  viewport.append(canvas);
+  if(!dialog.open)dialog.showModal();
+  requestAnimationFrame(()=>centerUpgradeGraph(viewport,positions.get(source.id),nodeWidth,nodeHeight));
+}
+function renderUpgradeSummary(container,unit){
+  const analysis=ORDRCore.analyzeRecipe(unit,state.owned,state.excludedIds,state.excludedLevels,state.byId);
+  const emptyAnalysis=ORDRCore.analyzeRecipe(unit,new Map(),state.excludedIds,state.excludedLevels,state.byId);
+  const commonRequirements=[...emptyAnalysis.lackedMaterials].filter(([id])=>state.byId.get(id)?.level===1);
+  const common=commonRequirements.length?commonRequirements.map(([id,quantity])=>{
+    const material=state.byId.get(id),missing=analysis.lackedMaterials.get(id)||0,covered=Math.max(0,quantity-missing);
+    return `<span class="upgrade-requirement${covered<quantity?' missing':' complete'}">${escapeHtml(material.name)} <b>${covered}/${quantity}</b></span>`;
+  }).join('<i>/</i>'):'<span class="upgrade-summary-empty">필요한 흔함 유닛 없음</span>';
+  const upperRequirements=analysis.materials.length?analysis.materials.map(({material,quantity,special})=>`<span class="upgrade-upper-requirement${special?' special':''}">${escapeHtml(material?.name||'알 수 없음')} <b>×${quantity}</b></span>`).join('<i>/</i>'):'<span class="upgrade-summary-empty">필요한 조합 유닛 없음</span>';
+  const tooltip=state.details.get(Number(unit.id))?.tooltip||'';
+  const traits=(unit.skills||[]).map((code)=>{
+    const name=skillNames[code]||code,effects=parseEffectKinds(tooltip,name);
+    const values=[...new Set(effects.map(({value})=>`${/감소/.test(name)?'-':''}${value}`))];
+    return `<span>${escapeHtml(name)}${values.length?` <b>${escapeHtml(values.join(' / '))}</b>`:''}</span>`;
+  }).join('')||'<em>보유 특성 없음</em>';
+  container.innerHTML=`<img class="upgrade-summary-image" src="${unit.image}" alt=""><div class="upgrade-summary-content"><div class="upgrade-summary-title"><strong>${escapeHtml(unit.name)}</strong><span>${escapeHtml(unit.group||unit.level_text||'')}</span></div><div class="upgrade-upper-requirements"><label>필요한 상위 조합</label>${upperRequirements}</div><div class="upgrade-requirements"><label>흔함 유닛</label>${common}</div><div class="upgrade-traits">${traits}</div></div>`;
+}
+function centerUpgradeGraph(viewport,position,nodeWidth,nodeHeight){
+  if(!position)return;
+  viewport.scrollTo({
+    left:Math.max(0,position.x+nodeWidth/2-viewport.clientWidth/2),
+    top:Math.max(0,position.y-36),
+    behavior:'auto'
+  });
+}
+function bindUpgradeGraphPan(){
+  const viewport=$('#upgrade-path-list'),dialog=$('#upgrade-path-dialog');
+  let drag=null;
+  viewport.addEventListener('pointerdown',(event)=>{
+    if(event.button!==0||event.target.closest('.upgrade-graph-node'))return;
+    drag={x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop,moved:false};
+    viewport.setPointerCapture(event.pointerId); viewport.classList.add('panning');
+  });
+  viewport.addEventListener('pointermove',(event)=>{
+    if(!drag)return;
+    const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
+    if(Math.abs(dx)+Math.abs(dy)>3)drag.moved=true;
+    viewport.scrollLeft=drag.left-dx; viewport.scrollTop=drag.top-dy;
+  });
+  const stop=(event)=>{
+    if(!drag)return;
+    const moved=drag.moved;
+    if(viewport.hasPointerCapture(event.pointerId))viewport.releasePointerCapture(event.pointerId);
+    drag=null; viewport.classList.remove('panning');
+    if(moved){dialog.dataset.justPanned='true';setTimeout(()=>delete dialog.dataset.justPanned,0);}
+  };
+  viewport.addEventListener('pointerup',stop);
+  viewport.addEventListener('pointercancel',stop);
+}
+function focusUpgradeGraph(canvas,id){
+  const paths=[...canvas.querySelectorAll('.upgrade-graph-lines path')];
+  const connected=new Set([String(id)]);
+  paths.forEach((path)=>{const active=id!==null&&(path.dataset.from===String(id)||path.dataset.to===String(id));path.classList.toggle('active',active);path.classList.toggle('dimmed',id!==null&&!active);if(active){connected.add(path.dataset.from);connected.add(path.dataset.to);}});
+  canvas.querySelectorAll('.upgrade-graph-node').forEach((node)=>node.classList.toggle('dimmed',id!==null&&!connected.has(node.dataset.id)));
+}
 function applyUnitSkillFilter(){
   document.querySelectorAll('.unit').forEach((row)=>{
     const unit=state.byId.get(parseUnitId(row.dataset.id));
@@ -126,7 +270,7 @@ function renderOwnedUpper(){
     group.innerHTML=`<span class="owned-upper-label">${escapeHtml(groupName)}</span><div class="owned-upper-items"></div>`;
     const items=group.querySelector('.owned-upper-items');
     for(const [id,count] of entries){
-      const unit=state.byId.get(id); const item=document.createElement('div'); item.className='owned-upper-unit'; item.dataset.id=unit.id; item.title=`${unit.name} ×${count}`;
+      const unit=state.byId.get(id); const item=document.createElement('div'); item.className='owned-upper-unit'; item.dataset.id=unit.id; item.setAttribute('aria-label',`${unit.name} ×${count}`);
       item.innerHTML=`<img src="${unit.image}" alt="${escapeHtml(unit.name)}"><b>${count}</b>`;
       item.addEventListener('mouseenter',()=>showUnitTooltip(item,unit));
       item.addEventListener('mousemove',positionUnitTooltip);
@@ -204,6 +348,7 @@ function showUnitTooltip(row,unit){
   const tooltip=$('#unit-tooltip'); const detail=state.details.get(Number(unit.id));
   const content=detail?.tooltip?.trim()||((unit.skills||[]).map((code)=>skillNames[code]||code).join('\n'));
   if(!content){hideUnitTooltip();return;}
+  tooltip.classList.toggle('named-tooltip',row.classList.contains('upgrade-graph-node')||row.classList.contains('owned-upper-unit'));
   tooltip.querySelector('img').src=unit.image; tooltip.querySelector('strong').textContent=unit.name; tooltip.querySelector('.tooltip-head span').textContent=unit.group||unit.level_text||'';
   const body=tooltip.querySelector('.tooltip-body'); renderTooltipBody(body,content);
   tooltip.hidden=false; row.setAttribute('aria-describedby','unit-tooltip');
@@ -296,15 +441,24 @@ function bindEvents(){
   bindRecommendationResize();
   $('#open-extra-units').onclick=()=>$('#extra-units-dialog').showModal();
   $('#open-exclusions').onclick=()=>$('#exclusion-dialog').showModal();
+  $('#upgrade-path-dialog').addEventListener('click',(event)=>{
+    const dialog=event.currentTarget,rect=dialog.getBoundingClientRect();
+    if(dialog.dataset.justPanned||event.target!==dialog)return;
+    const inside=event.clientX>=rect.left&&event.clientX<=rect.right&&event.clientY>=rect.top&&event.clientY<=rect.bottom;
+    if(!inside)dialog.close();
+  });
+  $('#upgrade-path-dialog').addEventListener('close',()=>{hideUnitTooltip();document.body.append($('#unit-tooltip'));});
+  bindUpgradeGraphPan();
   $('#exclusion-dialog').addEventListener('close',syncExclusions);
   $('#clear-exclusions').onclick=()=>{document.querySelectorAll('#exclusion-dialog input').forEach((x)=>x.checked=false);};
   $('#skill-filter-options').addEventListener('click',(e)=>{
     if(!e.target.matches('[name="skill-filter"]')||!e.target.value||state.activeSkill!==e.target.value)return;
-    e.preventDefault();
-    $('#skill-filter-options input[value=""]').checked=true;
-    state.activeSkill='';
-    $('#skill-filter-current').textContent='전체';
-    applyUnitSkillFilter();
+    setTimeout(()=>{
+      $('#skill-filter-options input[value=""]').checked=true;
+      state.activeSkill='';
+      $('#skill-filter-current').textContent='전체';
+      applyUnitSkillFilter();
+    },0);
   });
   document.addEventListener('change',(e)=>{
     if(e.target.matches('[name="skill-filter"]')){state.activeSkill=e.target.value;$('#skill-filter-current').textContent=state.activeSkill?(skillNames[state.activeSkill]||state.activeSkill):'전체';applyUnitSkillFilter();}
@@ -323,7 +477,20 @@ function bindEvents(){
   });
   document.addEventListener('keydown',(e)=>{
     if(e.ctrlKey||e.metaKey){if(['+','=','-','0'].includes(e.key)){e.preventDefault();changeZoom(e.key==='-'?'out':e.key==='0'?'reset':'in');}return;}
+    if(e.key==='Escape'){
+      const openDialogs=[...document.querySelectorAll('dialog[open]')];
+      if(openDialogs.length){e.preventDefault();openDialogs.at(-1).close();return;}
+    }
+    if(e.key==='Escape'&&state.activeSkill){
+      e.preventDefault();
+      $('#skill-filter-options input[value=""]').checked=true;
+      state.activeSkill='';
+      $('#skill-filter-current').textContent='전체';
+      applyUnitSkillFilter();
+      return;
+    }
     if(e.target.matches('input')||e.altKey)return;
+    if(e.key.toLowerCase()==='t'){e.preventDefault();e.shiftKey?$('#undo').click():$('#reset').click();return;}
     if(e.key.toLowerCase()==='z'){e.shiftKey?$('#redo').click():$('#undo').click();return;}
     const pressedHotkey=e.code.startsWith('Key')?e.code.slice(3):e.key.toUpperCase();
     const u=state.units.find((x)=>x.hotkey===pressedHotkey);
@@ -347,8 +514,8 @@ function updateZoomLabel(factor){$('#zoom-label').textContent=`${Math.round(fact
 function updateStatusToggleButtons(hidden){
   const title=hidden?'현재 상태 창 보이기':'현재 상태 창 안 보이기';
   const icon=hidden
-    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M5 3l14 18"/></svg>'
-    : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>';
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 4.2A10.5 10.5 0 0112 4c6 0 9 8 9 8a15.2 15.2 0 01-2.1 3.3M6.6 6.6C4.2 8.2 3 12 3 12s3 8 9 8a9.8 9.8 0 004.1-.9"/></svg>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3-8 9-8 9 8 9 8-3 8-9 8-9-8-9-8z"/><circle cx="12" cy="12" r="3"/></svg>';
   document.querySelectorAll('[data-toggle-status]').forEach((button)=>{button.innerHTML=icon;button.title=title;button.setAttribute('aria-label',title);button.setAttribute('aria-pressed',String(hidden));});
 }
 function updateStickyLayout(){const panels=document.querySelector('.top-panels');if(!panels)return;document.documentElement.style.setProperty('--recommendations-top',`${Math.ceil(panels.getBoundingClientRect().bottom+9)}px`);}

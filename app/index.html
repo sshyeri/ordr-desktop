@@ -21,7 +21,7 @@
     </div>
     <button id="undo" class="ghost" disabled>↶ 되돌리기 <kbd>Z</kbd></button>
     <button id="redo" class="ghost" disabled>↷ 앞으로 <kbd>Shift+Z</kbd></button>
-    <button id="reset" class="danger">전체 초기화</button>
+    <button id="reset" class="danger">전체 초기화 <kbd>T</kbd></button>
   </header>
 
   <div class="top-panels">
@@ -37,7 +37,7 @@
       </div>
     </section>
     <section class="skill-filter-panel" id="skill-filter-panel">
-      <button id="toggle-skill-filter" class="skill-filter-head" aria-expanded="true"><span>유닛 스킬 필터</span><b id="skill-filter-current">전체</b><i>⌃</i></button>
+      <button id="toggle-skill-filter" class="skill-filter-head" aria-expanded="true"><span>유닛 스킬 필터</span><b id="skill-filter-current">전체</b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10l5-5 5 5"/></svg></button>
       <div id="skill-filter-options" class="skill-filter-options"></div>
     </section>
   </div>
@@ -74,6 +74,14 @@
       <div class="dialog-head"><div><span class="eyebrow">EXTRA UNITS</span><h2>도우미에 없는 유닛</h2></div><button value="cancel" class="icon-button">×</button></div>
       <div id="extra-units-list" class="extra-units-list"></div>
       <div class="dialog-actions"><button value="default" class="primary">닫기</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="upgrade-path-dialog" class="upgrade-path-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><span class="eyebrow">UPGRADE PATH</span><h2 id="upgrade-path-title">상위 조합</h2></div><button value="cancel" class="icon-button">×</button></div>
+      <div id="upgrade-path-source" class="upgrade-path-source"></div>
+      <div id="upgrade-path-list" class="upgrade-path-list"></div>
     </form>
   </dialog>
 
