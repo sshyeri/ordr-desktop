@@ -128,6 +128,7 @@ h1, h2, h3, p { margin: 0; }
 .unit.no-upgrade-route { grid-template-columns: 24px minmax(0,1fr) 18px 18px 18px; }
 .unit > *:not(.unit-progress-fill) { position: relative; z-index: 1; }
 .unit-progress-fill { position: absolute; z-index: 0; inset: 0 80px 0 0; background: linear-gradient(to right,var(--progress-color) 0 var(--progress),transparent var(--progress) 100%); pointer-events: none; }
+.unit.no-upgrade-route .unit-progress-fill { right: 60px; }
 .unit.progress-high { --progress-color: rgba(255,105,164,.68); }
 .unit.progress-complete { --progress-color: rgba(70,121,184,.58); }
 .unit:last-child { border-bottom: 0; }
