@@ -298,6 +298,14 @@ function bindEvents(){
   $('#open-exclusions').onclick=()=>$('#exclusion-dialog').showModal();
   $('#exclusion-dialog').addEventListener('close',syncExclusions);
   $('#clear-exclusions').onclick=()=>{document.querySelectorAll('#exclusion-dialog input').forEach((x)=>x.checked=false);};
+  $('#skill-filter-options').addEventListener('click',(e)=>{
+    if(!e.target.matches('[name="skill-filter"]')||!e.target.value||state.activeSkill!==e.target.value)return;
+    e.preventDefault();
+    $('#skill-filter-options input[value=""]').checked=true;
+    state.activeSkill='';
+    $('#skill-filter-current').textContent='전체';
+    applyUnitSkillFilter();
+  });
   document.addEventListener('change',(e)=>{
     if(e.target.matches('[name="skill-filter"]')){state.activeSkill=e.target.value;$('#skill-filter-current').textContent=state.activeSkill?(skillNames[state.activeSkill]||state.activeSkill):'전체';applyUnitSkillFilter();}
     if(e.target.matches('[data-exclude-level]')){const box=document.querySelector(`[data-level-option][value="${e.target.dataset.excludeLevel}"]`);if(box)box.checked=e.target.checked;syncExclusions();}
