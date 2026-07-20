@@ -100,7 +100,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .skill-filter-collapsed .skill-filter-head svg { transform: rotate(180deg); }
 .status-hidden .status-panel { display: none; }
 .workspace { display: grid; grid-template-columns: minmax(1120px, 1fr) var(--recommendations-width); gap: 9px; padding: 9px 10px 20px; align-items: start; transition: grid-template-columns .18s ease; }
-.app-footer { padding: 14px 10px 18px; border-top: 1px solid var(--line); color: #607184; font-size: 10px; text-align: center; }
+.app-footer { display: flex; align-items: center; justify-content: center; gap: 9px; padding: 12px 10px 16px; border-top: 1px solid var(--line); color: #607184; font-size: 10px; text-align: center; }
+.support-developer { height: 30px; padding: 0 9px; border: 1px solid #665634; border-radius: 7px; background: #292319; color: #e7c778; font-size: 9px; white-space: nowrap; }
+.support-developer:hover { border-color: #b79245; background: #352c1b; color: #ffe39a; }
+.support-dialog { width: min(420px,90vw); padding: 0; overflow: hidden; }
+.support-dialog form { padding: 0; }
+.support-dialog .dialog-head { padding: 11px 13px; }
+.support-dialog .dialog-head h2 { font-size: 14px; }
+.support-dialog .dialog-head p { margin: 2px 0 0; font-size: 9px; }
+.support-dialog > form > img { width: 100%; max-height: min(620px,72vh); display: block; object-fit: contain; background: #f7f7f7; }
+.support-dialog > form > small { display: block; padding: 8px 12px 10px; color: var(--muted); font-size: 8px; text-align: center; }
 .board-wrap, .recommendations { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
 .board-head, .aside-head { display: flex; align-items: center; justify-content: space-between; padding: 9px 11px; border-bottom: 1px solid var(--line); }
 h1, h2, h3, p { margin: 0; }
@@ -109,6 +118,18 @@ h1, h2, h3, p { margin: 0; }
 .outline { padding: 5px 8px; background: transparent; }
 .topbar > .outline { padding: 8px 10px; }
 .outline span, .pill { display: inline-grid; place-items: center; min-width: 19px; height: 19px; border-radius: 20px; background: #233142; color: var(--teal); font-size: 11px; }
+.update-status { position: relative; min-width: 112px; height: 30px; display: flex; align-items: center; justify-content: center; gap: 6px; overflow: hidden; padding: 0 9px; border: 1px solid #34475d; border-radius: 7px; background: #172332; color: #aebdcd; font-size: 9px; font-weight: 700; }
+.update-status:hover { border-color: #6285aa; color: var(--text); }
+.update-status[data-state="available"] { border-color: #b78b38; background: #302817; color: #ffd477; }
+.update-status[data-state="downloading"] { color: #bcd8f7; cursor: wait; }
+.update-status[data-state="downloaded"] { border-color: #2b9b7f; background: #143128; color: #7ee2ca; }
+.update-status[data-state="error"] { border-color: #89424f; color: #ff9cac; }
+.update-spinner { width: 10px; height: 10px; flex: 0 0 10px; border: 2px solid #53677d; border-top-color: #9fd4ff; border-radius: 50%; animation: update-spin .75s linear infinite; }
+.update-status:not([data-state="checking"]) .update-spinner { display: none; }
+.update-progress { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; background: #263548; opacity: 0; }
+.update-status[data-state="downloading"] .update-progress { opacity: 1; }
+.update-progress i { display: block; width: var(--update-progress,0%); height: 100%; background: var(--blue); transition: width .15s linear; }
+@keyframes update-spin { to { transform: rotate(360deg); } }
 
 /* The source helper uses eight fixed vertical columns. Keep the same placement. */
 .unit-board { display: grid; grid-template-columns: repeat(8, minmax(132px, 1fr)); gap: 5px; padding: 5px; background: #0d141d; align-items: start; }

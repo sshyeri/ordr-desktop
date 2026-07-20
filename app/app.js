@@ -30,7 +30,33 @@ async function init() {
   state.allUnits.unshift({id:ORDRCore.WISP_ID,name:'흔함선택위습',group:'흔함',level:1,level_text:'흔함',mate_ids:[],skills:[],hotkey:'V',image:'assets/units/wisp.png'});
   state.units = state.allUnits.filter((u) => !excludedFromInput.has(u.id) && (u.group !== '기타' || ORDRCore.SPECIAL_IDS.has(u.id)) && boardColumns.flat().includes(u.group));
   state.byId = new Map(state.allUnits.map((u) => [u.id, u]));
-  renderSkillFilter(); renderExtraUnits(); bindEvents(); renderBoard(); renderExclusions(); renderAll(); updateZoomLabel(await window.ordrDesktop.zoom.get()); requestAnimationFrame(updateStickyLayout);
+  renderSkillFilter(); renderExtraUnits(); bindEvents(); bindUpdater(); renderBoard(); renderExclusions(); renderAll(); updateZoomLabel(await window.ordrDesktop.zoom.get()); requestAnimationFrame(updateStickyLayout);
+}
+
+function bindUpdater(){
+  const button=$('#update-status'),label=$('#update-label');
+  let status='checking';
+  const setStatus=(payload)=>{
+    status=payload.status; button.dataset.state=status; button.style.setProperty('--update-progress',`${payload.percent||0}%`);
+    const labels={
+      checking:'업데이트 확인 중',
+      available:`v${payload.version} 업데이트`,
+      downloading:`다운로드 ${payload.percent||0}%`,
+      downloaded:`v${payload.version} 설치하기`,
+      'not-available':'최신 버전',
+      error:'업데이트 재확인',
+    };
+    label.textContent=labels[status]||'업데이트 확인';
+    button.disabled=status==='checking'||status==='downloading';
+    button.title=status==='available'?'클릭하여 업데이트 다운로드':status==='downloaded'?'클릭하여 재시작 후 설치':status==='not-available'?'클릭하여 업데이트 다시 확인':status==='error'?'확인에 실패했습니다. 클릭하여 다시 시도':'업데이트 상태';
+  };
+  window.ordrDesktop.updater.onStatus(setStatus);
+  button.addEventListener('click',()=>{
+    if(status==='available')window.ordrDesktop.updater.download().catch(()=>{});
+    else if(status==='downloaded')window.ordrDesktop.updater.install();
+    else if(status==='not-available'||status==='error'){setStatus({status:'checking'});window.ordrDesktop.updater.check().catch(()=>{});}
+  });
+  window.ordrDesktop.updater.check().catch(()=>{});
 }
 
 function snapshot() { state.history.push(new Map(state.owned)); state.future=[]; if (state.history.length > 50) state.history.shift(); }
@@ -420,6 +446,11 @@ function syncExclusions(){
 
 function updateExcludeCount(){const n=state.excludedIds.size+state.excludedLevels.size;$('#exclude-count').textContent=n;document.body.classList.toggle('has-exclusions',n>0);}
 function bindEvents(){
+  $('#support-developer').onclick=()=>$('#support-dialog').showModal();
+  $('#support-dialog').addEventListener('click',(event)=>{
+    const dialog=event.currentTarget,rect=dialog.getBoundingClientRect();
+    if(event.target===dialog&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom))dialog.close();
+  });
   $('#reset').onclick=()=>{if(!state.owned.size)return;snapshot();state.owned.clear();renderAll();};
   $('#undo').onclick=()=>{if(!state.history.length)return;state.future.push(new Map(state.owned));state.owned=state.history.pop();renderAll();};
   $('#redo').onclick=()=>{if(!state.future.length)return;state.history.push(new Map(state.owned));state.owned=state.future.pop();renderAll();};
