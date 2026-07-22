@@ -145,7 +145,7 @@ h1, h2, h3, p { margin: 0; }
 .level > header span { flex: 1; }
 .level > header label { color: var(--muted); font-size: 10px; font-weight: 400; }
 .unit-grid { display: grid; grid-template-columns: 1fr; }
-.unit { --progress: 0%; --progress-color: rgba(56,214,178,.42); position: relative; isolation: isolate; height: 28px; display: grid; grid-template-columns: 24px minmax(0,1fr) 18px 18px 18px 18px; align-items: center; gap: 2px; padding: 1px 2px; border: 0; border-bottom: 1px solid #1d2936; background: transparent; text-align: left; cursor: pointer; }
+.unit { --progress: 0%; --progress-color: rgba(56,214,178,.42); position: relative; isolation: isolate; height: 28px; display: grid; grid-template-columns: 24px minmax(0,1fr) 18px 18px 18px 18px; align-items: center; gap: 2px; padding: 1px 2px; border: 0; border-bottom: 1px solid #1d2936; background: transparent; text-align: left; cursor: default; }
 .unit.no-upgrade-route { grid-template-columns: 24px minmax(0,1fr) 18px 18px 18px; }
 .unit > *:not(.unit-progress-fill) { position: relative; z-index: 1; }
 .unit-progress-fill { position: absolute; z-index: 0; inset: 0 80px 0 0; background: linear-gradient(to right,var(--progress-color) 0 var(--progress),transparent var(--progress) 100%); pointer-events: none; }
@@ -154,17 +154,17 @@ h1, h2, h3, p { margin: 0; }
 .unit.progress-complete { --progress-color: rgba(70,121,184,.58); }
 .unit:last-child { border-bottom: 0; }
 .unit:hover { z-index: 2; outline: 2px solid #8ccfff; outline-offset: -2px; background: #1b2937; box-shadow: inset 3px 0 #8ccfff,0 0 6px rgba(108,190,255,.32); }
-.unit-image { position: relative; width: 24px; height: 24px; }
+.unit-image { position: relative; width: 24px; height: 24px; cursor: pointer; }
 .unit img { width: 24px; height: 24px; border-radius: 3px; object-fit: cover; background: #283442; }
-.unit-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+.unit-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; cursor: pointer; }
 .unit-name em { color: #d6fff5; font-size: 9px; font-style: normal; font-weight: 800; }
 .special-dot { display: none; width: 3px; height: 3px; margin-left: 2px; border-radius: 50%; background: #ff465d; box-shadow: 0 0 2px rgba(255,70,93,.8); vertical-align: super; }
 .unit.needs-special .special-dot { display: inline-block; }
 .unit.progress-high .unit-name em { color: #ffd0e3; }
 .unit.progress-complete .unit-name em { color: #d0e3f8; }
 .unit kbd { margin-left: 3px; padding: 1px 2px; border: 1px solid #3d4c5d; border-radius: 3px; color: #b8c7d8; font-size: 9px; font-family: inherit; }
-.unit strong { width: 18px; height: 22px; display: grid; place-items: center; border: 1px solid #34404d; border-radius: 4px; background: transparent; color: #78899a; font-size: 11px; }
-.unit-action { width: 18px; height: 22px; display: grid; place-items: center; padding: 0; border: 1px solid; border-radius: 4px; background: rgba(15,22,31,.88); font-size: 13px; font-weight: 900; }
+.unit strong { width: 18px; height: 26px; display: grid; place-items: center; border: 1px solid #34404d; border-radius: 4px; background: transparent; color: #78899a; font-size: 11px; cursor: default; }
+.unit-action { width: 18px; height: 26px; display: grid; place-items: center; padding: 0; border: 1px solid; border-radius: 4px; background: rgba(15,22,31,.88); font-size: 13px; font-weight: 900; }
 .unit-action.combine { border-color: #2e8f78; color: var(--teal); }
 .unit-action.upgrade-route { border-color: #3e79b8; color: #78b7ff; font-size: 12px; }
 .unit-action.upgrade-route:hover { border-color: #85c2ff; background: #18314c; color: #d5ebff; }
@@ -271,6 +271,7 @@ dialog h3 { margin: 14px 0 6px; font-size: 11px; }
 .extra-unit img { width: 24px; height: 24px; border-radius: 3px; object-fit: cover; }
 .extra-unit > span { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .extra-unit strong, .extra-unit button { width: 18px; height: 22px; display: grid; place-items: center; padding: 0; border: 1px solid #34404d; border-radius: 4px; background: transparent; font-size: 11px; }
+.extra-unit strong { cursor: default; }
 .extra-unit.owned strong { border-color: #2e8f78; color: var(--teal); }
 .extra-unit .extra-subtract { border-color: #8a3c49; color: var(--red); font-size: 13px; font-weight: 900; }
 .upgrade-path-dialog { width: min(1140px,95vw); max-height: 92vh; padding: 0; overflow: hidden; border: 1px solid #34465a; border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 24px 80px rgba(0,0,0,.6); }
