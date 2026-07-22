@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const appIcon = path.join(__dirname, '..', 'app', 'assets', 'brand-icon.png');
@@ -49,26 +49,26 @@ function createWindow() {
 }
 
 function setupAutoUpdates(win) {
-  if (!app.isPackaged) return;
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on('error', (error) => console.error('Auto update failed:', error));
-  autoUpdater.on('update-downloaded', async (info) => {
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'info',
-      buttons: ['지금 재시작', '나중에'],
-      defaultId: 0,
-      cancelId: 1,
-      title: '업데이트 준비 완료',
-      message: `새 버전 ${info.version} 다운로드가 완료되었습니다.`,
-      detail: '지금 재시작하면 업데이트가 자동으로 설치됩니다. 나중에를 선택하면 앱을 종료할 때 설치됩니다.',
-      noLink: true,
-    });
-    if (response === 0) autoUpdater.quitAndInstall(false, true);
+  const sendStatus = (status, detail = {}) => {
+    if (!win.isDestroyed()) win.webContents.send('update:status', { status, currentVersion: app.getVersion(), ...detail });
+  };
+  ipcMain.handle('update:check', async () => {
+    if (!app.isPackaged) { sendStatus('not-available'); return { development: true }; }
+    return autoUpdater.checkForUpdates();
   });
+  ipcMain.handle('update:download', () => app.isPackaged ? autoUpdater.downloadUpdate() : null);
+  ipcMain.on('update:install', () => { if (app.isPackaged) autoUpdater.quitAndInstall(false, true); });
+  if (!app.isPackaged) { win.webContents.once('did-finish-load', () => sendStatus('not-available')); return; }
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('checking-for-update', () => sendStatus('checking'));
+  autoUpdater.on('update-available', (info) => sendStatus('available', { version: info.version }));
+  autoUpdater.on('update-not-available', (info) => sendStatus('not-available', { version: info?.version }));
+  autoUpdater.on('download-progress', (progress) => sendStatus('downloading', { percent: Math.round(progress.percent || 0) }));
+  autoUpdater.on('update-downloaded', (info) => sendStatus('downloaded', { version: info.version }));
+  autoUpdater.on('error', (error) => { console.error('Auto update failed:', error); sendStatus('error', { message: error?.message || String(error) }); });
   const check = () => autoUpdater.checkForUpdates().catch((error) => console.error('Update check failed:', error));
-  setTimeout(check, 5000);
-  const updateTimer = setInterval(check, 6 * 60 * 60 * 1000);
+  const updateTimer = setInterval(check, 30 * 60 * 1000);
   updateTimer.unref();
 }
 

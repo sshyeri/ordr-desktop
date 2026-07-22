@@ -1,6 +1,6 @@
 {
   "name": "ordr-desktop",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "private": true,
   "description": "ord local helper - sshyeri",
   "main": "electron/main.cjs",
@@ -21,7 +21,13 @@
   "build": {
     "appId": "kr.ordr.helper",
     "productName": "ord local helper - sshyeri",
-    "publish": [{ "provider": "github", "owner": "sshyeri", "repo": "ordr-desktop" }],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "sshyeri",
+        "repo": "ordr-desktop"
+      }
+    ],
     "directories": {
       "buildResources": "build"
     },

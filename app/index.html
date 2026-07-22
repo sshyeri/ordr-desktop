@@ -12,6 +12,7 @@
     <label class="search"><span>⌕</span><input id="search" placeholder="유닛 검색 — Enter로 이동" autocomplete="off" /></label>
     <button class="ghost status-visibility" data-toggle-status aria-pressed="false" aria-label="현재 상태 창 안 보이기" title="현재 상태 창 안 보이기"></button>
     <button id="open-exclusions" class="outline">계산 제외 설정 <span id="exclude-count">0</span></button>
+    <button id="update-status" class="update-status" data-state="checking" type="button" title="업데이트 상태"><span class="update-spinner" aria-hidden="true"></span><span id="update-label">업데이트 확인 중</span><span class="update-progress" aria-hidden="true"><i></i></span></button>
     <div class="stat armor"><span>방깎 합계</span><strong id="armor-total">수치 미입력</strong></div>
     <div class="stat slow"><span>이감 합계</span><strong id="slow-total">수치 미입력</strong></div>
     <div class="zoom-controls" aria-label="화면 배율">
@@ -21,7 +22,8 @@
     </div>
     <button id="undo" class="ghost" disabled>↶ 되돌리기 <kbd>Z</kbd></button>
     <button id="redo" class="ghost" disabled>↷ 앞으로 <kbd>Shift+Z</kbd></button>
-    <button id="reset" class="danger">전체 초기화</button>
+    <button id="reset" class="danger">전체 초기화 <kbd>T</kbd></button>
+    <button id="support-developer" class="support-developer" type="button" title="카카오페이로 개발자 후원하기">☕ 개발자 후원</button>
   </header>
 
   <div class="top-panels">
@@ -37,7 +39,7 @@
       </div>
     </section>
     <section class="skill-filter-panel" id="skill-filter-panel">
-      <button id="toggle-skill-filter" class="skill-filter-head" aria-expanded="true"><span>유닛 스킬 필터</span><b id="skill-filter-current">전체</b><i>⌃</i></button>
+      <button id="toggle-skill-filter" class="skill-filter-head" aria-expanded="true"><span>유닛 스킬 필터</span><b id="skill-filter-current">전체</b><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10l5-5 5 5"/></svg></button>
       <div id="skill-filter-options" class="skill-filter-options"></div>
     </section>
   </div>
@@ -74,6 +76,22 @@
       <div class="dialog-head"><div><span class="eyebrow">EXTRA UNITS</span><h2>도우미에 없는 유닛</h2></div><button value="cancel" class="icon-button">×</button></div>
       <div id="extra-units-list" class="extra-units-list"></div>
       <div class="dialog-actions"><button value="default" class="primary">닫기</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="upgrade-path-dialog" class="upgrade-path-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><span class="eyebrow">UPGRADE PATH</span><h2 id="upgrade-path-title">상위 조합</h2></div><button value="cancel" class="icon-button">×</button></div>
+      <div id="upgrade-path-source" class="upgrade-path-source"></div>
+      <div id="upgrade-path-list" class="upgrade-path-list"></div>
+    </form>
+  </dialog>
+
+  <dialog id="support-dialog" class="support-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><h2>개발자 후원</h2><p>휴대폰 카메라로 카카오페이 QR을 스캔해주세요.</p></div><button value="cancel" class="icon-button" aria-label="닫기">×</button></div>
+      <img src="assets/kakaopay-support.png" alt="혜리 카카오페이 후원 QR 코드">
+      <small>후원은 선택이며 앱 기능 이용과 무관합니다.</small>
     </form>
   </dialog>
 
