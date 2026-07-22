@@ -1,6 +1,6 @@
 const state = {
   units: [], allUnits: [], byId: new Map(), owned: new Map(), history: [], future: [],
-  excludedIds: new Set(), excludedLevels: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), collapsedUnitGroups: new Set(), activeSkill: '',
+  excludedIds: new Set(), excludedLevels: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), collapsedUnitGroups: new Set(), activeSkill: '', upgradePathHistory: [],
 };
 const skillNames={damageb:'공격력 버프',speedb:'공격속도 버프',sky:'공중 공격',sstun:'단일 스턴',slow:'이동속도 감소',shield:'방어력 감소',stun:'범위 스턴',boss:'보스 피해',berserk:'광폭화',splash:'스플래시',last:'끝딜',rangetlpd:'범위 체력 비례 피해',blink:'순간이동',armorbreak:'아머브레이크',single:'단일 피해',regen:'회복',ignore:'방어 무시',docking:'마법 피해 증폭',life:'생명력',bombup:'폭발 피해',mshield:'마법 방어력 감소',udelete:'유닛 삭제',rangellpd:'범위 최대 체력 피해',rangenlpd:'범위 현재 체력 피해',singlelost:'단일 잃은 체력 피해',prefmagic:'마딜',prefphysical:'물딜',prefstory:'스토리'};
 const preferenceFilterCodes=['prefmagic','prefphysical','prefstory'];
@@ -96,7 +96,7 @@ function renderBoard() {
       row.addEventListener('click', (event) => { if(event.target.closest('.unit-image,.unit-name'))changeCount(unit.id, 1); });
       row.querySelector('.subtract').addEventListener('click', (e) => { e.stopPropagation(); changeCount(unit.id, -1); });
       row.querySelector('.combine').addEventListener('click', (e) => { e.stopPropagation(); craftUnit(unit.id); });
-      if(canShowUpgrades)row.querySelector('.upgrade-route').addEventListener('click',(e)=>{e.stopPropagation();showUpgradePaths(unit);});
+      if(canShowUpgrades)row.querySelector('.upgrade-route').addEventListener('click',(e)=>{e.stopPropagation();openUpgradePaths(unit);});
       row.addEventListener('mouseenter',()=>showUnitTooltip(row,unit));
       row.addEventListener('mousemove',(event)=>positionUnitTooltip(event));
       row.addEventListener('mouseleave',hideUnitTooltip);
@@ -153,8 +153,10 @@ function collectUpgradeTargets(source){
   return [...depths].filter(([id])=>id!==source.id).map(([id,depth])=>({unit:state.byId.get(id),depth})).filter((item)=>item.unit)
     .sort((a,b)=>categoryRank(a.unit)-categoryRank(b.unit)||a.depth-b.depth||a.unit.name.localeCompare(b.unit.name,'ko'));
 }
+function openUpgradePaths(source){state.upgradePathHistory=[];showUpgradePaths(source);}
 function showUpgradePaths(source){
   const dialog=$('#upgrade-path-dialog'), sourceBox=$('#upgrade-path-source'), viewport=$('#upgrade-path-list');
+  const backButton=$('#upgrade-path-back'); backButton.hidden=!state.upgradePathHistory.length;
   if($('#unit-tooltip').parentElement!==dialog)dialog.append($('#unit-tooltip'));
   $('#upgrade-path-title').textContent=`${source.name} - ${source.group||source.level_text||'상위 조합'}`;
   renderUpgradeSummary(sourceBox,source);
@@ -210,7 +212,7 @@ function showUpgradePaths(source){
     const item=document.createElement('button'); item.type='button'; item.className=`upgrade-graph-node${id===source.id?' source':''}`; item.dataset.id=id; item.style.left=`${x}px`; item.style.top=`${y}px`;
     item.setAttribute('aria-label',`${node.unit.name} - ${node.unit.group||node.unit.level_text||''}`);
     item.innerHTML=`<img src="${node.unit.image}" alt="">`;
-    if(id!==source.id)item.addEventListener('click',()=>{hideUnitTooltip();showUpgradePaths(node.unit);});
+    if(id!==source.id)item.addEventListener('click',()=>{hideUnitTooltip();state.upgradePathHistory.push(source.id);showUpgradePaths(node.unit);});
     item.addEventListener('mouseenter',(event)=>{focusUpgradeGraph(canvas,id);showUnitTooltip(item,node.unit);positionUnitTooltip(event);});
     item.addEventListener('mousemove',positionUnitTooltip);
     item.addEventListener('mouseleave',()=>{focusUpgradeGraph(canvas,null);hideUnitTooltip();});
@@ -463,7 +465,13 @@ function syncExclusions(){
 
 function updateExcludeCount(){const n=state.excludedIds.size+state.excludedLevels.size;$('#exclude-count').textContent=n;document.body.classList.toggle('has-exclusions',n>0);}
 function bindEvents(){
+  $('#open-help').onclick=()=>$('#help-dialog').showModal();
+  $('#help-dialog').addEventListener('click',(event)=>{
+    const dialog=event.currentTarget,rect=dialog.getBoundingClientRect();
+    if(event.target===dialog&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom))dialog.close();
+  });
   $('#support-developer').onclick=()=>$('#support-dialog').showModal();
+  $('#upgrade-path-back').onclick=()=>{const id=state.upgradePathHistory.pop();if(id!==undefined){hideUnitTooltip();showUpgradePaths(state.byId.get(id));}};
   $('#support-dialog').addEventListener('click',(event)=>{
     const dialog=event.currentTarget,rect=dialog.getBoundingClientRect();
     if(event.target===dialog&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom))dialog.close();
@@ -495,7 +503,7 @@ function bindEvents(){
     const inside=event.clientX>=rect.left&&event.clientX<=rect.right&&event.clientY>=rect.top&&event.clientY<=rect.bottom;
     if(!inside)dialog.close();
   });
-  $('#upgrade-path-dialog').addEventListener('close',()=>{hideUnitTooltip();document.body.append($('#unit-tooltip'));});
+  $('#upgrade-path-dialog').addEventListener('close',()=>{state.upgradePathHistory=[];hideUnitTooltip();document.body.append($('#unit-tooltip'));});
   bindUpgradeGraphPan();
   $('#exclusion-dialog').addEventListener('close',syncExclusions);
   $('#clear-exclusions').onclick=()=>{document.querySelectorAll('#exclusion-dialog input').forEach((x)=>x.checked=false);};

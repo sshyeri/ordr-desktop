@@ -103,6 +103,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .app-footer { display: flex; align-items: center; justify-content: center; gap: 9px; padding: 12px 10px 16px; border-top: 1px solid var(--line); color: #607184; font-size: 10px; text-align: center; }
 .support-developer { height: 30px; padding: 0 9px; border: 1px solid #665634; border-radius: 7px; background: #292319; color: #e7c778; font-size: 9px; white-space: nowrap; }
 .support-developer:hover { border-color: #b79245; background: #352c1b; color: #ffe39a; }
+.help-button { flex: 0 0 30px; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid #48627e; border-radius: 50%; background: #192637; color: #bcd4ec; font-size: 14px; font-weight: 900; }
+.help-button:hover { border-color: #79a9d8; background: #243850; color: #fff; }
 .support-dialog { width: min(420px,90vw); padding: 0; overflow: hidden; }
 .support-dialog form { padding: 0; }
 .support-dialog .dialog-head { padding: 11px 13px; }
@@ -110,6 +112,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .support-dialog .dialog-head p { margin: 2px 0 0; font-size: 9px; }
 .support-dialog > form > img { width: 100%; max-height: min(620px,72vh); display: block; object-fit: contain; background: #f7f7f7; }
 .support-dialog > form > small { display: block; padding: 8px 12px 10px; color: var(--muted); font-size: 8px; text-align: center; }
+.help-dialog { width: min(620px,92vw); }
+.help-dialog form { padding: 16px; }
+.help-dialog .dialog-head { align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.help-dialog .dialog-head h2 { margin-top: 2px; font-size: 18px; }
+.help-dialog .dialog-head p { margin: 4px 0 0; font-size: 10px; }
+.help-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.help-grid section { padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: #0e1721; }
+.help-grid h3 { margin: 0 0 8px; color: #dbe9f6; font-size: 12px; }
+.help-grid dl { margin: 0; }
+.help-grid dl div { min-height: 23px; display: grid; grid-template-columns: minmax(96px,.9fr) 1.1fr; align-items: center; gap: 7px; border-top: 1px solid #1c2a38; }
+.help-grid dl div:first-child { border-top: 0; }
+.help-grid dt { color: #8ec5ff; font-size: 9px; font-weight: 800; }
+.help-grid dd { margin: 0; color: #b8c6d5; font-size: 9px; }
+.help-wide { grid-column: 1 / -1; }
+.help-features { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 43px; gap: 5px 18px; }
+.help-features p { min-width: 0; display: flex; flex-direction: column; align-self: stretch; gap: 3px; margin: 0; }
+.help-features b { color: #f2c86f; font-size: 9px; }
+.help-features span { color: #aab9c8; font-size: 9px; line-height: 1.45; }
 .board-wrap, .recommendations { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
 .board-head, .aside-head { display: flex; align-items: center; justify-content: space-between; padding: 9px 11px; border-bottom: 1px solid var(--line); }
 h1, h2, h3, p { margin: 0; }
@@ -278,6 +298,10 @@ dialog h3 { margin: 14px 0 6px; font-size: 11px; }
 .upgrade-path-dialog form { max-height: 92vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
 .upgrade-path-dialog .dialog-head { position: absolute; z-index: 8; top: 8px; right: 9px; padding: 0; border: 0; background: transparent; }
 .upgrade-path-dialog .dialog-head > div { display: none; }
+.upgrade-back { position: absolute; z-index: 9; bottom: 14px; left: 14px; width: 38px; height: 38px; display: grid; place-items: center; padding: 0; border: 1px solid #478fd4; border-radius: 50%; background: #2468a8; color: #fff; box-shadow: 0 5px 16px rgba(0,0,0,.38); font-size: 20px; font-weight: 800; line-height: 1; }
+.upgrade-back:hover { border-color: #7dbbfa; background: #327fc7; box-shadow: 0 6px 20px rgba(25,112,190,.42); }
+.upgrade-back:active { transform: translateY(1px); }
+.upgrade-back[hidden] { display: none; }
 .upgrade-path-dialog .icon-button { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; color: var(--muted); }
 .upgrade-path-dialog .icon-button:hover { color: var(--text); }
 .upgrade-path-source { display: grid; grid-template-columns: 62px minmax(0,1fr); align-items: center; gap: 10px; padding: 10px 50px 10px 12px; border-bottom: 1px solid var(--line); background: #111923; color: #aab8c7; }
