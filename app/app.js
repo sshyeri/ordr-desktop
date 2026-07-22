@@ -2,7 +2,8 @@ const state = {
   units: [], allUnits: [], byId: new Map(), owned: new Map(), history: [], future: [],
   excludedIds: new Set(), excludedLevels: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), collapsedUnitGroups: new Set(), activeSkill: '',
 };
-const skillNames={damageb:'공격력 버프',speedb:'공격속도 버프',sky:'공중 공격',sstun:'단일 스턴',slow:'이동속도 감소',shield:'방어력 감소',stun:'범위 스턴',boss:'보스 피해',berserk:'광폭화',splash:'스플래시',last:'끝딜',rangetlpd:'범위 체력 비례 피해',blink:'순간이동',armorbreak:'아머브레이크',single:'단일 피해',regen:'회복',ignore:'방어 무시',docking:'마법 피해 증폭',life:'생명력',bombup:'폭발 피해',mshield:'마법 방어력 감소',udelete:'유닛 삭제',rangellpd:'범위 최대 체력 피해',rangenlpd:'범위 현재 체력 피해',singlelost:'단일 잃은 체력 피해'};
+const skillNames={damageb:'공격력 버프',speedb:'공격속도 버프',sky:'공중 공격',sstun:'단일 스턴',slow:'이동속도 감소',shield:'방어력 감소',stun:'범위 스턴',boss:'보스 피해',berserk:'광폭화',splash:'스플래시',last:'끝딜',rangetlpd:'범위 체력 비례 피해',blink:'순간이동',armorbreak:'아머브레이크',single:'단일 피해',regen:'회복',ignore:'방어 무시',docking:'마법 피해 증폭',life:'생명력',bombup:'폭발 피해',mshield:'마법 방어력 감소',udelete:'유닛 삭제',rangellpd:'범위 최대 체력 피해',rangenlpd:'범위 현재 체력 피해',singlelost:'단일 잃은 체력 피해',prefmagic:'마딜',prefphysical:'물딜',prefstory:'스토리'};
+const preferenceFilterCodes=['prefmagic','prefphysical','prefstory'];
 const boardColumns = [
   ['흔함','안흔함'], ['특별함'], ['희귀함'], ['전설적인'],
   ['히든조합','왜곡됨','랜덤전용'], ['변화된','세라핌','제한됨'],
@@ -117,7 +118,7 @@ function renderAll() {
 }
 function renderSkillFilter(){
   const options=$('#skill-filter-options');
-  const skills=[...new Set(state.allUnits.flatMap((unit)=>unit.skills||[]))].sort((a,b)=>(skillNames[a]||a).localeCompare(skillNames[b]||b,'ko'));
+  const skills=[...new Set([...state.allUnits.flatMap((unit)=>unit.skills||[]),...preferenceFilterCodes])].sort((a,b)=>(skillNames[a]||a).localeCompare(skillNames[b]||b,'ko'));
   options.innerHTML=`<label><input type="radio" name="skill-filter" value="" checked> 전체</label>${skills.map((code)=>`<label><input type="radio" name="skill-filter" value="${escapeHtml(code)}"> ${escapeHtml(skillNames[code]||code)}</label>`).join('')}`;
 }
 function renderExtraUnits(){
@@ -277,7 +278,8 @@ function focusUpgradeGraph(canvas,id){
 function applyUnitSkillFilter(){
   document.querySelectorAll('.unit').forEach((row)=>{
     const unit=state.byId.get(parseUnitId(row.dataset.id));
-    const matched=!state.activeSkill||(unit?.skills||[]).includes(state.activeSkill);
+    const preferenceMatch=preferenceFilterCodes.includes(state.activeSkill)&&preferenceTags(state.details.get(Number(unit?.id))?.tooltip).has(state.activeSkill);
+    const matched=!state.activeSkill||(unit?.skills||[]).includes(state.activeSkill)||preferenceMatch;
     row.classList.toggle('skill-filter-miss',!matched);
     row.classList.toggle('skill-filter-hit',Boolean(state.activeSkill&&matched));
   });
@@ -385,16 +387,31 @@ function positionUnitTooltip(event){
   tooltip.style.left=`${Math.max(8,left)}px`; tooltip.style.top=`${Math.max(8,top)}px`;
 }
 function hideUnitTooltip(){const tooltip=$('#unit-tooltip');tooltip.hidden=true;document.querySelector('[aria-describedby="unit-tooltip"]')?.removeAttribute('aria-describedby');}
+function preferenceTag(line){
+  const value=Number(line.match(/-?\d+/)?.[0]);
+  if(!Number.isFinite(value))return null;
+  if(line.includes('스토리')&&value>=5)return{label:'#스토리',kind:'story'};
+  if((line.includes('마법')||line.includes('마딜'))&&value>=10)return{label:'#마딜',kind:'magic'};
+  if((line.includes('물리')||line.includes('물딜'))&&value>=10)return{label:'#물딜',kind:'physical'};
+  return null;
+}
+function preferenceTags(text=''){
+  const codes={story:'prefstory',magic:'prefmagic',physical:'prefphysical'};
+  return new Set(text.split('\n').map(preferenceTag).filter(Boolean).map(({kind})=>codes[kind]));
+}
 function renderTooltipBody(body,text){
   const lines=text.split('\n').filter(Boolean); body.innerHTML='';
   lines.forEach((line,index)=>{
     const displayLine=line.replace(/^(해적선(?:x\d+)?) \(히든조합\)$/,'$1 (기타)');
-    const item=document.createElement('div'); item.textContent=displayLine;
+    const isPreference=/좋아요\s*-?\d+/.test(displayLine),preference=isPreference?preferenceTag(displayLine):null;
+    if(isPreference&&!preference)return;
+    const item=document.createElement('div'); item.textContent=preference?.label||displayLine;
     if(/\((흔함|안흔함|특별함|희귀함|전설적인|히든조합|변화된|제한됨|초월함|불멸의|영원함|기타)\)$/.test(displayLine)){
       item.className='tooltip-material';
       if([...ORDRCore.SPECIAL_IDS].some((id)=>displayLine.includes(state.byId.get(id)?.name)))item.classList.add('tooltip-special-material');
     }
-    else if(/좋아요\s*\d+/.test(displayLine))item.className=`tooltip-preference ${displayLine.includes('마법')?'magic':displayLine.includes('물리')?'physical':'story'}`;
+    else if(preference)item.className=`tooltip-preference ${preference.kind}`;
+    else if(/\([a-z][a-z0-9 _-]*\)$/i.test(displayLine))item.className='tooltip-command';
     else if(/형식/.test(displayLine))item.className='tooltip-detail';
     else item.className='tooltip-trait';
     if(item.classList.contains('tooltip-preference')&&!body.lastElementChild?.classList.contains('tooltip-preference'))item.classList.add('section-start');
