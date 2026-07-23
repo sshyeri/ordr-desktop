@@ -12,7 +12,7 @@ const boardColumns = [
 const levelOrder = [1,2,3,4,5,6,7,8,9,10,18,11,12,14,15,19,20,22];
 const levelNames = {1:'흔함',2:'안흔함',3:'특별함',4:'희귀함',5:'전설적인',6:'히든조합',7:'왜곡됨',8:'랜덤전용',9:'제한됨',10:'초월함',11:'불멸의',12:'영원한',14:'특수 재료',15:'특수함',18:'신비함',19:'기록지침',20:'연구소',22:'아이템'};
 const excludedFromInput = new Set([16,184,280,286,287,301]);
-const terminalUpgradeGroups = new Set(['불멸의','초월함','왜곡됨','신비함']);
+const terminalUpgradeGroups = new Set(['왜곡됨','신비함']);
 const baseNames = new Map([[1,'루피'],[2,'조로'],[3,'나미'],[4,'우솝'],[5,'상디'],[6,'쵸파'],[7,'칼병'],[8,'총병'],[9,'버기']]);
 const $ = (s) => document.querySelector(s);
 
@@ -440,7 +440,7 @@ function renderTooltipBody(body,text){
 
 function renderCandidates(candidateItems) {
   let items=[...candidateItems];
-  items=items.filter((item)=>item.progress>=80&&(item.unit.group||item.unit.level_text)!=='변화된').sort((a,b)=>b.progress-a.progress||categoryRank(b.unit)-categoryRank(a.unit)||a.unit.name.localeCompare(b.unit.name,'ko'));
+  items=items.filter((item)=>item.progress>=80&&(item.unit.group||item.unit.level_text)!=='변화된').sort((a,b)=>categoryRank(b.unit)-categoryRank(a.unit)||b.progress-a.progress||a.unit.name.localeCompare(b.unit.name,'ko'));
   $('#candidate-count').textContent=items.length;
   const list=$('#candidate-list'); list.innerHTML='';
   if(!items.length){list.innerHTML='<div class="empty"><b>표시할 조합이 없습니다</b><span>진행률 80% 이상인 조합이 표시됩니다.</span></div>';return;}
