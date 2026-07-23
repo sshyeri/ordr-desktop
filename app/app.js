@@ -41,6 +41,7 @@ function bindUpdater(){
     status=payload.status; button.dataset.state=status; button.style.setProperty('--update-progress',`${payload.percent||0}%`);
     const labels={
       checking:'업데이트 확인 중',
+      loading:'로딩 중…',
       available:`v${payload.version} 업데이트`,
       downloading:`다운로드 ${payload.percent||0}%`,
       downloaded:`v${payload.version} 설치하기`,
@@ -48,13 +49,19 @@ function bindUpdater(){
       error:'업데이트 재확인',
     };
     label.textContent=labels[status]||'업데이트 확인';
-    button.disabled=status==='checking'||status==='downloading';
+    button.disabled=status==='checking'||status==='loading'||status==='downloading';
     button.title=status==='available'?'클릭하여 업데이트 다운로드':status==='downloaded'?'클릭하여 재시작 후 설치':status==='not-available'?'클릭하여 업데이트 다시 확인':status==='error'?'확인에 실패했습니다. 클릭하여 다시 시도':'업데이트 상태';
   };
   window.ordrDesktop.updater.onStatus(setStatus);
   button.addEventListener('click',()=>{
-    if(status==='available')window.ordrDesktop.updater.download().catch(()=>{});
-    else if(status==='downloaded')window.ordrDesktop.updater.install();
+    if(status==='available'){
+      setStatus({status:'loading'});
+      window.ordrDesktop.updater.download().catch(()=>setStatus({status:'error'}));
+    }
+    else if(status==='downloaded'){
+      setStatus({status:'loading'});
+      setTimeout(()=>window.ordrDesktop.updater.install(),80);
+    }
     else if(status==='not-available'||status==='error'){setStatus({status:'checking'});window.ordrDesktop.updater.check().catch(()=>{});}
   });
   window.ordrDesktop.updater.check().catch(()=>{});
@@ -230,14 +237,23 @@ function renderUpgradeSummary(container,unit){
     const material=state.byId.get(id),missing=analysis.lackedMaterials.get(id)||0,covered=Math.max(0,quantity-missing);
     return `<span class="upgrade-requirement${covered<quantity?' missing':' complete'}">${escapeHtml(material.name)} <b>${covered}/${quantity}</b></span>`;
   }).join('<i>/</i>'):'<span class="upgrade-summary-empty">필요한 흔함 유닛 없음</span>';
-  const upperRequirements=analysis.materials.length?analysis.materials.map(({material,quantity,special})=>`<span class="upgrade-upper-requirement${special?' special':''}">${escapeHtml(material?.name||'알 수 없음')} <b>×${quantity}</b></span>`).join('<i>/</i>'):'<span class="upgrade-summary-empty">필요한 조합 유닛 없음</span>';
+  const upperRequirements=analysis.materials.length?analysis.materials.map(({material,quantity,special})=>{
+    if(!material)return `<span class="upgrade-upper-requirement">알 수 없음 <b>×${quantity}</b></span>`;
+    const content=`${escapeHtml(material.name)} <b>×${quantity}</b>`,className=`upgrade-upper-requirement${special?' special':''}`;
+    return Number(material.level)===1?`<span class="${className}">${content}</span>`:`<button type="button" class="${className}" data-upgrade-summary-unit="${escapeHtml(String(material.id))}">${content}</button>`;
+  }).join('<i>/</i>'):'<span class="upgrade-summary-empty">필요한 조합 유닛 없음</span>';
   const tooltip=state.details.get(Number(unit.id))?.tooltip||'';
   const traits=(unit.skills||[]).map((code)=>{
     const name=skillNames[code]||code,effects=parseEffectKinds(tooltip,name);
     const values=[...new Set(effects.map(({value})=>`${/감소/.test(name)?'-':''}${value}`))];
     return `<span>${escapeHtml(name)}${values.length?` <b>${escapeHtml(values.join(' / '))}</b>`:''}</span>`;
   }).join('')||'<em>보유 특성 없음</em>';
-  container.innerHTML=`<img class="upgrade-summary-image" src="${unit.image}" alt=""><div class="upgrade-summary-content"><div class="upgrade-summary-title"><strong>${escapeHtml(unit.name)}</strong><span>${escapeHtml(unit.group||unit.level_text||'')}</span></div><div class="upgrade-upper-requirements"><label>필요한 상위 조합</label>${upperRequirements}</div><div class="upgrade-requirements"><label>흔함 유닛</label>${common}</div><div class="upgrade-traits">${traits}</div></div>`;
+  container.innerHTML=`<img class="upgrade-summary-image" src="${unit.image}" alt=""><div class="upgrade-summary-content"><div class="upgrade-summary-title"><strong>${escapeHtml(unit.name)}</strong><span>${escapeHtml(unit.group||unit.level_text||'')}</span></div><div class="upgrade-upper-requirements">${upperRequirements}</div><div class="upgrade-requirements"><label>흔함 유닛</label>${common}</div><div class="upgrade-traits">${traits}</div></div>`;
+  container.querySelectorAll('[data-upgrade-summary-unit]').forEach((button)=>button.addEventListener('click',()=>{
+    const target=state.byId.get(parseUnitId(button.dataset.upgradeSummaryUnit));
+    if(!target)return;
+    hideUnitTooltip(); state.upgradePathHistory.push(unit.id); showUpgradePaths(target);
+  }));
 }
 function centerUpgradeGraph(viewport,position,nodeWidth,nodeHeight){
   if(!position)return;
@@ -424,7 +440,7 @@ function renderTooltipBody(body,text){
 
 function renderCandidates(candidateItems) {
   let items=[...candidateItems];
-  items=items.filter((item)=>item.progress>=80).sort((a,b)=>b.progress-a.progress||categoryRank(b.unit)-categoryRank(a.unit)||a.unit.name.localeCompare(b.unit.name,'ko'));
+  items=items.filter((item)=>item.progress>=80&&(item.unit.group||item.unit.level_text)!=='변화된').sort((a,b)=>b.progress-a.progress||categoryRank(b.unit)-categoryRank(a.unit)||a.unit.name.localeCompare(b.unit.name,'ko'));
   $('#candidate-count').textContent=items.length;
   const list=$('#candidate-list'); list.innerHTML='';
   if(!items.length){list.innerHTML='<div class="empty"><b>표시할 조합이 없습니다</b><span>진행률 80% 이상인 조합이 표시됩니다.</span></div>';return;}

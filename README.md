@@ -1,4 +1,4 @@
-# ord local helper - sshyeri
+# ord local helper
 
 원피스 랜덤 디펜스 조합도우미
 
