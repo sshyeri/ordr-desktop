@@ -243,12 +243,14 @@ function renderUpgradeSummary(container,unit){
     return Number(material.level)===1?`<span class="${className}">${content}</span>`:`<button type="button" class="${className}" data-upgrade-summary-unit="${escapeHtml(String(material.id))}">${content}</button>`;
   }).join('<i>/</i>'):'<span class="upgrade-summary-empty">필요한 조합 유닛 없음</span>';
   const tooltip=state.details.get(Number(unit.id))?.tooltip||'';
+  const commands=tooltip.split('\n').map((line)=>line.trim()).filter((line)=>/\([a-z][a-z0-9 _-]*\)$/i.test(line));
+  const commandSummary=commands.length?`<div class="upgrade-commands">${commands.map((command)=>`<strong>${escapeHtml(command)}</strong>`).join('')}</div>`:'';
   const traits=(unit.skills||[]).map((code)=>{
     const name=skillNames[code]||code,effects=parseEffectKinds(tooltip,name);
     const values=[...new Set(effects.map(({value})=>`${/감소/.test(name)?'-':''}${value}`))];
     return `<span>${escapeHtml(name)}${values.length?` <b>${escapeHtml(values.join(' / '))}</b>`:''}</span>`;
   }).join('')||'<em>보유 특성 없음</em>';
-  container.innerHTML=`<img class="upgrade-summary-image" src="${unit.image}" alt=""><div class="upgrade-summary-content"><div class="upgrade-summary-title"><strong>${escapeHtml(unit.name)}</strong><span>${escapeHtml(unit.group||unit.level_text||'')}</span></div><div class="upgrade-upper-requirements">${upperRequirements}</div><div class="upgrade-requirements"><label>흔함 유닛</label>${common}</div><div class="upgrade-traits">${traits}</div></div>`;
+  container.innerHTML=`<img class="upgrade-summary-image" src="${unit.image}" alt=""><div class="upgrade-summary-content"><div class="upgrade-summary-title"><strong>${escapeHtml(unit.name)}</strong><span>${escapeHtml(unit.group||unit.level_text||'')}</span></div>${commandSummary}<div class="upgrade-upper-requirements">${upperRequirements}</div><div class="upgrade-requirements"><label>흔함 유닛</label>${common}</div><div class="upgrade-traits">${traits}</div></div>`;
   container.querySelectorAll('[data-upgrade-summary-unit]').forEach((button)=>button.addEventListener('click',()=>{
     const target=state.byId.get(parseUnitId(button.dataset.upgradeSummaryUnit));
     if(!target)return;

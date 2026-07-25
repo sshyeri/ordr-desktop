@@ -311,6 +311,8 @@ dialog h3 { margin: 14px 0 6px; font-size: 11px; }
 .upgrade-summary-title { display: flex; align-items: baseline; gap: 7px; }
 .upgrade-summary-title strong { color: var(--text); font-size: 13px; }
 .upgrade-summary-title span { color: var(--blue); font-size: 10px; font-weight: 700; }
+.upgrade-commands { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 10px; }
+.upgrade-commands strong { color: #c78cff; font-size: 11px; font-weight: 800; }
 .upgrade-upper-requirements,.upgrade-requirements { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; color: #c3cfdb; font-size: 10px; }
 .upgrade-upper-requirements label,.upgrade-requirements label { margin-right: 3px; color: var(--muted); font-weight: 700; }
 .upgrade-upper-requirements > i,.upgrade-requirements > i { color: #4f6071; font-style: normal; }
