@@ -116,9 +116,22 @@ function renderBoard() {
   }
 }
 
+function animateCountChange(element,previous,next){
+  if(previous===next)return;
+  element.classList.remove('count-increase','count-decrease');
+  void element.offsetWidth;
+  element.classList.add(next>previous?'count-increase':'count-decrease');
+  element.addEventListener('animationend',()=>element.classList.remove('count-increase','count-decrease'),{once:true});
+}
 function renderAll() {
-  document.querySelectorAll('[data-count]').forEach((el) => { const id=parseUnitId(el.dataset.count); const n=state.owned.get(id)||0; el.textContent=n; el.closest('.unit').classList.toggle('owned',n>0); });
-  document.querySelectorAll('[data-extra-count]').forEach((el)=>{const count=state.owned.get(+el.dataset.extraCount)||0;el.textContent=count;el.closest('.extra-unit').classList.toggle('owned',count>0);});
+  document.querySelectorAll('[data-count]').forEach((el) => {
+    const id=parseUnitId(el.dataset.count),n=state.owned.get(id)||0,previous=Number(el.textContent)||0;
+    el.textContent=n; animateCountChange(el,previous,n); el.closest('.unit').classList.toggle('owned',n>0);
+  });
+  document.querySelectorAll('[data-extra-count]').forEach((el)=>{
+    const count=state.owned.get(+el.dataset.extraCount)||0,previous=Number(el.textContent)||0;
+    el.textContent=count;animateCountChange(el,previous,count);el.closest('.extra-unit').classList.toggle('owned',count>0);
+  });
   document.querySelectorAll('[data-extra-group-count]').forEach((el)=>{const level=+el.dataset.extraGroupCount;el.textContent=[...state.owned].filter(([id])=>state.byId.get(id)?.level===level).reduce((sum,[,count])=>sum+count,0);});
   $('#undo').disabled=!state.history.length; $('#redo').disabled=!state.future.length;
   const candidates=currentCandidates(); renderOwnedUpper(); updateEffectTotals(); updateUnitProgress(candidates); renderCandidates(candidates); updateExcludeCount(); applyUnitSkillFilter();

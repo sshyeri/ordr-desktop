@@ -1,6 +1,6 @@
 {
   "name": "ordr-desktop",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "private": true,
   "description": "원피스 랜덤 디펜스 조합도우미",
   "main": "electron/main.cjs",
