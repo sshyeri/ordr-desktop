@@ -3,6 +3,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const core = require('../app/core.js');
+const root = path.join(__dirname, '..');
+const seedData = JSON.parse(fs.readFileSync(path.join(root, 'data', 'units.seed.json'), 'utf8'));
+const displayData = JSON.parse(fs.readFileSync(path.join(root, 'data', 'unit-display.json'), 'utf8'));
+const displayById = new Map(displayData.map((unit) => [unit.id, unit]));
+const allUnits = seedData.map((unit) => ({ ...unit, ...displayById.get(unit.id), mate_ids: unit.mate_ids || [] }));
+const allById = new Map(allUnits.map((unit) => [unit.id, unit]));
 
 const units = [
   { id: 1, name: '루피', level: 1, mate_ids: [] },
@@ -109,8 +115,7 @@ test('owned intermediate units are consumed before their lower materials', () =>
 });
 
 test('display metadata keeps source grouping and every unit has a local icon', () => {
-  const root = path.join(__dirname, '..');
-  const display = JSON.parse(fs.readFileSync(path.join(root, 'data', 'unit-display.json'), 'utf8'));
+  const display = displayData;
   assert.equal(display.length, 310);
   for (const id of core.SPECIAL_IDS) {
     const row = display.find((unit) => unit.id === id);
@@ -120,7 +125,6 @@ test('display metadata keeps source grouping and every unit has a local icon', (
 });
 
 test('local unit details contain tooltips and numeric combat effects', () => {
-  const root = path.join(__dirname, '..');
   const details = JSON.parse(fs.readFileSync(path.join(root, 'data', 'unit-details.json'), 'utf8'));
   assert.ok(details.length >= 290);
   assert.ok(details.filter((unit) => unit.tooltip).length >= 290);
@@ -129,9 +133,7 @@ test('local unit details contain tooltips and numeric combat effects', () => {
 });
 
 test('duplicate recipe materials preserve their required quantity', () => {
-  const root = path.join(__dirname, '..');
-  const seed = JSON.parse(fs.readFileSync(path.join(root, 'data', 'units.seed.json'), 'utf8'));
-  const namiClimaTact = seed.find((unit) => unit.id === 38);
+  const namiClimaTact = seedData.find((unit) => unit.id === 38);
   assert.equal(namiClimaTact.mate_ids.filter((id) => id === 3).length, 3);
 });
 
@@ -144,4 +146,57 @@ test('candidate shortages are reported as lowest common materials', () => {
   const result = core.analyzeRecipe(candidateUnits[1], new Map(), new Set(), new Set(), candidateById);
   assert.equal(result.lackedMaterials.get(3), 3);
   assert.equal(result.missingTotal, 3);
+});
+
+test('every recipe references valid units without self references or cycles', () => {
+  assert.equal(allUnits.length, allById.size);
+  for (const unit of allUnits) {
+    for (const materialId of unit.mate_ids) {
+      assert.ok(allById.has(materialId), `${unit.name} has unknown material ${materialId}`);
+      assert.notEqual(String(materialId), String(unit.id), `${unit.name} references itself`);
+    }
+  }
+
+  const visiting = new Set();
+  const visited = new Set();
+  function visit(unit) {
+    if (visited.has(unit.id)) return;
+    assert.equal(visiting.has(unit.id), false, `${unit.name} has a cyclic recipe`);
+    visiting.add(unit.id);
+    unit.mate_ids.forEach((id) => visit(allById.get(id)));
+    visiting.delete(unit.id);
+    visited.add(unit.id);
+  }
+  allUnits.forEach(visit);
+});
+
+test('every complete recipe reaches 100 percent and crafts without negative inventory', () => {
+  const recipes = allUnits.filter((unit) => unit.mate_ids.length);
+  assert.equal(recipes.length, 247);
+
+  for (const unit of recipes) {
+    const empty = core.analyzeRecipe(unit, new Map(), new Set(), new Set(), allById);
+    assert.ok(empty.materials.length > 0, `${unit.name} has no effective materials`);
+    assert.ok(empty.progress >= 0 && empty.progress <= 100, `${unit.name} has invalid progress`);
+
+    const owned = new Map(empty.materials.map(({ id, quantity }) => [id, quantity]));
+    const complete = core.analyzeRecipe(unit, owned, new Set(), new Set(), allById);
+    assert.equal(complete.progress, 100, `${unit.name} does not reach 100%`);
+    assert.equal(complete.ready, true, `${unit.name} is not craftable with all materials`);
+    assert.equal(core.craft(complete, owned), true, `${unit.name} craft was rejected`);
+    assert.equal(owned.get(unit.id), 1, `${unit.name} result was not added`);
+    for (const [id, count] of owned) assert.ok(count >= 0, `${unit.name} made material ${id} negative`);
+  }
+});
+
+test('removing one required material prevents 100 percent completion', () => {
+  for (const unit of allUnits.filter((candidate) => candidate.mate_ids.length)) {
+    const empty = core.analyzeRecipe(unit, new Map(), new Set(), new Set(), allById);
+    const owned = new Map(empty.materials.map(({ id, quantity }) => [id, quantity]));
+    const removed = empty.materials[0];
+    owned.set(removed.id, Math.max(0, removed.quantity - 1));
+    const incomplete = core.analyzeRecipe(unit, owned, new Set(), new Set(), allById);
+    assert.ok(incomplete.progress < 100, `${unit.name} reached 100% while missing ${removed.material?.name}`);
+    assert.equal(incomplete.ready, false, `${unit.name} became craftable with a missing material`);
+  }
 });

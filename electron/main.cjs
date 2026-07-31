@@ -12,7 +12,7 @@ function createWindow() {
     minWidth: 1180,
     minHeight: 720,
     backgroundColor: '#0b1017',
-    title: 'ord local helper - sshyeri',
+    title: 'ord local helper',
     icon: appIcon,
     autoHideMenuBar: true,
     webPreferences: {
