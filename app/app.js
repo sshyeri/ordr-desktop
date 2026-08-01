@@ -1,6 +1,6 @@
 const state = {
   units: [], allUnits: [], byId: new Map(), owned: new Map(), history: [], future: [],
-  excludedIds: new Set(), excludedLevels: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), collapsedUnitGroups: new Set(), activeSkill: '',
+  excludedIds: new Set(), excludedLevels: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), collapsedUnitGroups: new Set(), activeSkill: '', upgradePathHistory: [],
 };
 const skillNames={damageb:'공격력 버프',speedb:'공격속도 버프',sky:'공중 공격',sstun:'단일 스턴',slow:'이동속도 감소',shield:'방어력 감소',stun:'범위 스턴',boss:'보스 피해',berserk:'광폭화',splash:'스플래시',last:'끝딜',rangetlpd:'범위 체력 비례 피해',blink:'순간이동',armorbreak:'아머브레이크',single:'단일 피해',regen:'회복',ignore:'방어 무시',docking:'마법 피해 증폭',life:'생명력',bombup:'폭발 피해',mshield:'마법 방어력 감소',udelete:'유닛 삭제',rangellpd:'범위 최대 체력 피해',rangenlpd:'범위 현재 체력 피해',singlelost:'단일 잃은 체력 피해',prefmagic:'마딜',prefphysical:'물딜',prefstory:'스토리'};
 const preferenceFilterCodes=['prefmagic','prefphysical','prefstory'];
@@ -12,7 +12,7 @@ const boardColumns = [
 const levelOrder = [1,2,3,4,5,6,7,8,9,10,18,11,12,14,15,19,20,22];
 const levelNames = {1:'흔함',2:'안흔함',3:'특별함',4:'희귀함',5:'전설적인',6:'히든조합',7:'왜곡됨',8:'랜덤전용',9:'제한됨',10:'초월함',11:'불멸의',12:'영원한',14:'특수 재료',15:'특수함',18:'신비함',19:'기록지침',20:'연구소',22:'아이템'};
 const excludedFromInput = new Set([16,184,280,286,287,301]);
-const terminalUpgradeGroups = new Set(['불멸의','초월함','왜곡됨','신비함']);
+const terminalUpgradeGroups = new Set(['왜곡됨','신비함']);
 const baseNames = new Map([[1,'루피'],[2,'조로'],[3,'나미'],[4,'우솝'],[5,'상디'],[6,'쵸파'],[7,'칼병'],[8,'총병'],[9,'버기']]);
 const $ = (s) => document.querySelector(s);
 
@@ -41,6 +41,7 @@ function bindUpdater(){
     status=payload.status; button.dataset.state=status; button.style.setProperty('--update-progress',`${payload.percent||0}%`);
     const labels={
       checking:'업데이트 확인 중',
+      loading:'로딩 중…',
       available:`v${payload.version} 업데이트`,
       downloading:`다운로드 ${payload.percent||0}%`,
       downloaded:`v${payload.version} 설치하기`,
@@ -48,13 +49,19 @@ function bindUpdater(){
       error:'업데이트 재확인',
     };
     label.textContent=labels[status]||'업데이트 확인';
-    button.disabled=status==='checking'||status==='downloading';
+    button.disabled=status==='checking'||status==='loading'||status==='downloading';
     button.title=status==='available'?'클릭하여 업데이트 다운로드':status==='downloaded'?'클릭하여 재시작 후 설치':status==='not-available'?'클릭하여 업데이트 다시 확인':status==='error'?'확인에 실패했습니다. 클릭하여 다시 시도':'업데이트 상태';
   };
   window.ordrDesktop.updater.onStatus(setStatus);
   button.addEventListener('click',()=>{
-    if(status==='available')window.ordrDesktop.updater.download().catch(()=>{});
-    else if(status==='downloaded')window.ordrDesktop.updater.install();
+    if(status==='available'){
+      setStatus({status:'loading'});
+      window.ordrDesktop.updater.download().catch(()=>setStatus({status:'error'}));
+    }
+    else if(status==='downloaded'){
+      setStatus({status:'loading'});
+      setTimeout(()=>window.ordrDesktop.updater.install(),80);
+    }
     else if(status==='not-available'||status==='error'){setStatus({status:'checking'});window.ordrDesktop.updater.check().catch(()=>{});}
   });
   window.ordrDesktop.updater.check().catch(()=>{});
@@ -93,14 +100,14 @@ function renderBoard() {
       const canShowUpgrades=Number(unit.level)>=3&&!terminalUpgradeGroups.has(unit.group);
       row.classList.toggle('no-upgrade-route',!canShowUpgrades);
       row.innerHTML = `<span class="unit-progress-fill"></span><span class="unit-image"><img src="${unit.image}" alt=""></span><span class="unit-name"><em data-progress="${unit.id}"></em>${escapeHtml(unit.name)}${shortcut}<i class="special-dot" title="기타 재료 필요"></i></span><button class="unit-action combine" title="조합">✓</button><button class="unit-action subtract" title="빼기">−</button>${canShowUpgrades?`<button class="unit-action upgrade-route" title="상위 조합 보기" aria-label="${escapeHtml(unit.name)} 상위 조합 보기">↗</button>`:''}<strong data-count="${unit.id}">0</strong>`;
-      row.addEventListener('click', () => changeCount(unit.id, 1));
+      row.addEventListener('click', (event) => { if(event.target.closest('.unit-image,.unit-name'))changeCount(unit.id, 1); });
       row.querySelector('.subtract').addEventListener('click', (e) => { e.stopPropagation(); changeCount(unit.id, -1); });
       row.querySelector('.combine').addEventListener('click', (e) => { e.stopPropagation(); craftUnit(unit.id); });
-      if(canShowUpgrades)row.querySelector('.upgrade-route').addEventListener('click',(e)=>{e.stopPropagation();showUpgradePaths(unit);});
+      if(canShowUpgrades)row.querySelector('.upgrade-route').addEventListener('click',(e)=>{e.stopPropagation();openUpgradePaths(unit);});
       row.addEventListener('mouseenter',()=>showUnitTooltip(row,unit));
       row.addEventListener('mousemove',(event)=>positionUnitTooltip(event));
       row.addEventListener('mouseleave',hideUnitTooltip);
-      row.addEventListener('contextmenu', (e) => { e.preventDefault(); changeCount(unit.id, -1); });
+      row.addEventListener('contextmenu', (e) => { e.preventDefault(); if(e.target.closest('.unit-image,.unit-name'))changeCount(unit.id, -1); });
       grid.append(row);
       }
       column.append(section);
@@ -109,9 +116,22 @@ function renderBoard() {
   }
 }
 
+function animateCountChange(element,previous,next){
+  if(previous===next)return;
+  element.classList.remove('count-increase','count-decrease');
+  void element.offsetWidth;
+  element.classList.add(next>previous?'count-increase':'count-decrease');
+  element.addEventListener('animationend',()=>element.classList.remove('count-increase','count-decrease'),{once:true});
+}
 function renderAll() {
-  document.querySelectorAll('[data-count]').forEach((el) => { const id=parseUnitId(el.dataset.count); const n=state.owned.get(id)||0; el.textContent=n; el.closest('.unit').classList.toggle('owned',n>0); });
-  document.querySelectorAll('[data-extra-count]').forEach((el)=>{const count=state.owned.get(+el.dataset.extraCount)||0;el.textContent=count;el.closest('.extra-unit').classList.toggle('owned',count>0);});
+  document.querySelectorAll('[data-count]').forEach((el) => {
+    const id=parseUnitId(el.dataset.count),n=state.owned.get(id)||0,previous=Number(el.textContent)||0;
+    el.textContent=n; animateCountChange(el,previous,n); el.closest('.unit').classList.toggle('owned',n>0);
+  });
+  document.querySelectorAll('[data-extra-count]').forEach((el)=>{
+    const count=state.owned.get(+el.dataset.extraCount)||0,previous=Number(el.textContent)||0;
+    el.textContent=count;animateCountChange(el,previous,count);el.closest('.extra-unit').classList.toggle('owned',count>0);
+  });
   document.querySelectorAll('[data-extra-group-count]').forEach((el)=>{const level=+el.dataset.extraGroupCount;el.textContent=[...state.owned].filter(([id])=>state.byId.get(id)?.level===level).reduce((sum,[,count])=>sum+count,0);});
   $('#undo').disabled=!state.history.length; $('#redo').disabled=!state.future.length;
   const candidates=currentCandidates(); renderOwnedUpper(); updateEffectTotals(); updateUnitProgress(candidates); renderCandidates(candidates); updateExcludeCount(); applyUnitSkillFilter();
@@ -131,8 +151,8 @@ function renderExtraUnits(){
     for(const unit of units){
       const row=document.createElement('div'); row.className='extra-unit'; row.dataset.id=unit.id;
       row.innerHTML=`<img src="${unit.image}" alt=""><span>${escapeHtml(unit.name)}</span><strong data-extra-count="${unit.id}">0</strong><button type="button" class="extra-subtract" title="빼기">−</button>`;
-      row.addEventListener('click',()=>changeCount(unit.id,1));
-      row.addEventListener('contextmenu',(event)=>{event.preventDefault();changeCount(unit.id,-1);});
+      row.addEventListener('click',(event)=>{if(!event.target.closest('[data-extra-count]'))changeCount(unit.id,1);});
+      row.addEventListener('contextmenu',(event)=>{event.preventDefault();if(!event.target.closest('[data-extra-count]'))changeCount(unit.id,-1);});
       row.querySelector('.extra-subtract').addEventListener('click',(event)=>{event.stopPropagation();changeCount(unit.id,-1);});
       row.addEventListener('mouseenter',()=>showUnitTooltip(row,unit)); row.addEventListener('mousemove',positionUnitTooltip); row.addEventListener('mouseleave',hideUnitTooltip);
       items.append(row);
@@ -153,8 +173,10 @@ function collectUpgradeTargets(source){
   return [...depths].filter(([id])=>id!==source.id).map(([id,depth])=>({unit:state.byId.get(id),depth})).filter((item)=>item.unit)
     .sort((a,b)=>categoryRank(a.unit)-categoryRank(b.unit)||a.depth-b.depth||a.unit.name.localeCompare(b.unit.name,'ko'));
 }
+function openUpgradePaths(source){state.upgradePathHistory=[];showUpgradePaths(source);}
 function showUpgradePaths(source){
   const dialog=$('#upgrade-path-dialog'), sourceBox=$('#upgrade-path-source'), viewport=$('#upgrade-path-list');
+  const backButton=$('#upgrade-path-back'); backButton.hidden=!state.upgradePathHistory.length;
   if($('#unit-tooltip').parentElement!==dialog)dialog.append($('#unit-tooltip'));
   $('#upgrade-path-title').textContent=`${source.name} - ${source.group||source.level_text||'상위 조합'}`;
   renderUpgradeSummary(sourceBox,source);
@@ -210,7 +232,7 @@ function showUpgradePaths(source){
     const item=document.createElement('button'); item.type='button'; item.className=`upgrade-graph-node${id===source.id?' source':''}`; item.dataset.id=id; item.style.left=`${x}px`; item.style.top=`${y}px`;
     item.setAttribute('aria-label',`${node.unit.name} - ${node.unit.group||node.unit.level_text||''}`);
     item.innerHTML=`<img src="${node.unit.image}" alt="">`;
-    if(id!==source.id)item.addEventListener('click',()=>{hideUnitTooltip();showUpgradePaths(node.unit);});
+    if(id!==source.id)item.addEventListener('click',()=>{hideUnitTooltip();state.upgradePathHistory.push(source.id);showUpgradePaths(node.unit);});
     item.addEventListener('mouseenter',(event)=>{focusUpgradeGraph(canvas,id);showUnitTooltip(item,node.unit);positionUnitTooltip(event);});
     item.addEventListener('mousemove',positionUnitTooltip);
     item.addEventListener('mouseleave',()=>{focusUpgradeGraph(canvas,null);hideUnitTooltip();});
@@ -228,14 +250,25 @@ function renderUpgradeSummary(container,unit){
     const material=state.byId.get(id),missing=analysis.lackedMaterials.get(id)||0,covered=Math.max(0,quantity-missing);
     return `<span class="upgrade-requirement${covered<quantity?' missing':' complete'}">${escapeHtml(material.name)} <b>${covered}/${quantity}</b></span>`;
   }).join('<i>/</i>'):'<span class="upgrade-summary-empty">필요한 흔함 유닛 없음</span>';
-  const upperRequirements=analysis.materials.length?analysis.materials.map(({material,quantity,special})=>`<span class="upgrade-upper-requirement${special?' special':''}">${escapeHtml(material?.name||'알 수 없음')} <b>×${quantity}</b></span>`).join('<i>/</i>'):'<span class="upgrade-summary-empty">필요한 조합 유닛 없음</span>';
+  const upperRequirements=analysis.materials.length?analysis.materials.map(({material,quantity,special})=>{
+    if(!material)return `<span class="upgrade-upper-requirement">알 수 없음 <b>×${quantity}</b></span>`;
+    const content=`${escapeHtml(material.name)} <b>×${quantity}</b>`,className=`upgrade-upper-requirement${special?' special':''}`;
+    return Number(material.level)===1?`<span class="${className}">${content}</span>`:`<button type="button" class="${className}" data-upgrade-summary-unit="${escapeHtml(String(material.id))}">${content}</button>`;
+  }).join('<i>/</i>'):'<span class="upgrade-summary-empty">필요한 조합 유닛 없음</span>';
   const tooltip=state.details.get(Number(unit.id))?.tooltip||'';
+  const commands=tooltip.split('\n').map((line)=>line.trim()).filter((line)=>/\([a-z][a-z0-9 _-]*\)$/i.test(line));
+  const commandSummary=commands.length?`<div class="upgrade-commands">${commands.map((command)=>`<strong>${escapeHtml(command)}</strong>`).join('')}</div>`:'';
   const traits=(unit.skills||[]).map((code)=>{
     const name=skillNames[code]||code,effects=parseEffectKinds(tooltip,name);
     const values=[...new Set(effects.map(({value})=>`${/감소/.test(name)?'-':''}${value}`))];
     return `<span>${escapeHtml(name)}${values.length?` <b>${escapeHtml(values.join(' / '))}</b>`:''}</span>`;
   }).join('')||'<em>보유 특성 없음</em>';
-  container.innerHTML=`<img class="upgrade-summary-image" src="${unit.image}" alt=""><div class="upgrade-summary-content"><div class="upgrade-summary-title"><strong>${escapeHtml(unit.name)}</strong><span>${escapeHtml(unit.group||unit.level_text||'')}</span></div><div class="upgrade-upper-requirements"><label>필요한 상위 조합</label>${upperRequirements}</div><div class="upgrade-requirements"><label>흔함 유닛</label>${common}</div><div class="upgrade-traits">${traits}</div></div>`;
+  container.innerHTML=`<img class="upgrade-summary-image" src="${unit.image}" alt=""><div class="upgrade-summary-content"><div class="upgrade-summary-title"><strong>${escapeHtml(unit.name)}</strong><span>${escapeHtml(unit.group||unit.level_text||'')}</span></div>${commandSummary}<div class="upgrade-upper-requirements">${upperRequirements}</div><div class="upgrade-requirements"><label>흔함 유닛</label>${common}</div><div class="upgrade-traits">${traits}</div></div>`;
+  container.querySelectorAll('[data-upgrade-summary-unit]').forEach((button)=>button.addEventListener('click',()=>{
+    const target=state.byId.get(parseUnitId(button.dataset.upgradeSummaryUnit));
+    if(!target)return;
+    hideUnitTooltip(); state.upgradePathHistory.push(unit.id); showUpgradePaths(target);
+  }));
 }
 function centerUpgradeGraph(viewport,position,nodeWidth,nodeHeight){
   if(!position)return;
@@ -422,7 +455,7 @@ function renderTooltipBody(body,text){
 
 function renderCandidates(candidateItems) {
   let items=[...candidateItems];
-  items=items.filter((item)=>item.progress>=80).sort((a,b)=>categoryRank(b.unit)-categoryRank(a.unit)||b.progress-a.progress||a.unit.name.localeCompare(b.unit.name,'ko'));
+  items=items.filter((item)=>item.progress>=80&&(item.unit.group||item.unit.level_text)!=='변화된').sort((a,b)=>categoryRank(b.unit)-categoryRank(a.unit)||b.progress-a.progress||a.unit.name.localeCompare(b.unit.name,'ko'));
   $('#candidate-count').textContent=items.length;
   const list=$('#candidate-list'); list.innerHTML='';
   if(!items.length){list.innerHTML='<div class="empty"><b>표시할 조합이 없습니다</b><span>진행률 80% 이상인 조합이 표시됩니다.</span></div>';return;}
@@ -463,7 +496,13 @@ function syncExclusions(){
 
 function updateExcludeCount(){const n=state.excludedIds.size+state.excludedLevels.size;$('#exclude-count').textContent=n;document.body.classList.toggle('has-exclusions',n>0);}
 function bindEvents(){
+  $('#open-help').onclick=()=>$('#help-dialog').showModal();
+  $('#help-dialog').addEventListener('click',(event)=>{
+    const dialog=event.currentTarget,rect=dialog.getBoundingClientRect();
+    if(event.target===dialog&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom))dialog.close();
+  });
   $('#support-developer').onclick=()=>$('#support-dialog').showModal();
+  $('#upgrade-path-back').onclick=()=>{const id=state.upgradePathHistory.pop();if(id!==undefined){hideUnitTooltip();showUpgradePaths(state.byId.get(id));}};
   $('#support-dialog').addEventListener('click',(event)=>{
     const dialog=event.currentTarget,rect=dialog.getBoundingClientRect();
     if(event.target===dialog&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom))dialog.close();
@@ -495,7 +534,7 @@ function bindEvents(){
     const inside=event.clientX>=rect.left&&event.clientX<=rect.right&&event.clientY>=rect.top&&event.clientY<=rect.bottom;
     if(!inside)dialog.close();
   });
-  $('#upgrade-path-dialog').addEventListener('close',()=>{hideUnitTooltip();document.body.append($('#unit-tooltip'));});
+  $('#upgrade-path-dialog').addEventListener('close',()=>{state.upgradePathHistory=[];hideUnitTooltip();document.body.append($('#unit-tooltip'));});
   bindUpgradeGraphPan();
   $('#exclusion-dialog').addEventListener('close',syncExclusions);
   $('#clear-exclusions').onclick=()=>{document.querySelectorAll('#exclusion-dialog input').forEach((x)=>x.checked=false);};
