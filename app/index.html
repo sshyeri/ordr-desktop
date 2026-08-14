@@ -9,7 +9,7 @@
 <body>
   <header class="topbar">
     <button id="open-help" class="help-button" type="button" aria-label="도움말 열기" title="도움말">?</button>
-    <div class="brand"><img class="brand-mark" src="assets/brand-icon.png" alt="ord local helper"><div><strong>ord local helper</strong></div></div>
+    <div class="brand"><button id="support-egg" class="brand-mark-button" type="button" title="개발자 후원" aria-label="개발자 후원"><img class="brand-mark" src="assets/brand-icon.png" alt="ord local helper"></button><div><strong>ord local helper</strong></div></div>
     <label class="search"><span>⌕</span><input id="search" placeholder="유닛 검색 — Enter로 이동" autocomplete="off" /></label>
     <button class="ghost status-visibility" data-toggle-status aria-pressed="false" aria-label="현재 상태 창 안 보이기" title="현재 상태 창 안 보이기"></button>
     <button id="open-exclusions" class="outline">계산 제외 설정 <span id="exclude-count">0</span></button>
@@ -24,8 +24,9 @@
     <button id="undo" class="ghost" disabled>↶ 되돌리기 <kbd>Z</kbd></button>
     <button id="redo" class="ghost" disabled>↷ 앞으로 <kbd>Shift+Z</kbd></button>
     <button id="reset" class="danger">전체 초기화 <kbd>T</kbd></button>
-    <!-- 후원 버튼 — ORDR 커뮤니티 디스코드 채널 관리자 요청으로 비활성화 (2026-08-01).
-         되살릴 때 app.js의 support-developer 핸들러 주석도 같이 풀어야 한다.
+    <!-- 헤더의 후원 버튼은 2026-08-01 ORDR 커뮤니티 디스코드 채널 관리자 요청으로 내렸고
+         그대로 둔다. 후원 경로는 헤더 로고(support-egg) 하나뿐이다.
+         이 버튼을 되살리려면 app.js의 support-developer 핸들러도 같이 풀어야 한다.
     <button id="support-developer" class="support-developer" type="button" title="카카오페이로 개발자 후원하기">☕ 개발자 후원</button>
     -->
   </header>

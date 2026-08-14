@@ -24,6 +24,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .brand { display: flex; align-items: center; gap: 8px; min-width: 135px; }
 .brand-mark { display: block; width: 34px; height: 34px; object-fit: contain; background: transparent; }
+/* 로고 얼굴이 후원 다이얼로그 진입점이다. 평소엔 그냥 로고로 보이게 두고 hover로만 알린다 */
+.brand-mark-button { padding: 0; border: 0; border-radius: 9px; background: transparent; line-height: 0; }
+.brand-mark-button:hover { background: #352c1b; }
 .brand strong, .brand small, .stat span, .stat strong { display: block; }
 .brand small { color: var(--muted); font-size: 9px; letter-spacing: 1.5px; }
 .search { height: 38px; flex: 1; max-width: 390px; display: flex; align-items: center; gap: 7px; padding: 0 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
