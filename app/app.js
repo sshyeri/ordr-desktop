@@ -501,9 +501,12 @@ function bindEvents(){
     const dialog=event.currentTarget,rect=dialog.getBoundingClientRect();
     if(event.target===dialog&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom))dialog.close();
   });
-  // 후원 버튼 비활성화 (2026-08-01, 디스코드 관리자 요청). index.html의 버튼 주석과 짝이다.
+  // 헤더 후원 버튼은 내린 채로 둔다 (2026-08-01, 디스코드 관리자 요청).
   // 버튼이 없는 상태로 이 줄을 살려두면 null에 onclick을 걸어 초기화가 멈춘다.
   // $('#support-developer').onclick=()=>$('#support-dialog').showModal();
+  // 후원 경로는 헤더 로고(얼굴) 하나뿐이다. 안내를 따로 두지 않았으므로
+  // 이 줄이 사라지면 앱 안에서 후원 다이얼로그에 닿을 방법이 없어진다.
+  $('#support-egg').onclick=()=>$('#support-dialog').showModal();
   $('#upgrade-path-back').onclick=()=>{const id=state.upgradePathHistory.pop();if(id!==undefined){hideUnitTooltip();showUpgradePaths(state.byId.get(id));}};
   $('#support-dialog').addEventListener('click',(event)=>{
     const dialog=event.currentTarget,rect=dialog.getBoundingClientRect();
