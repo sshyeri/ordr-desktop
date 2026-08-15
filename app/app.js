@@ -51,8 +51,20 @@ function applyMapPatch(mapPatch) {
     const detail = state.details.get(patch.id);
     if (!detail) continue;
     let tooltip = detail.tooltip || '';
+    for (const replacement of patch.replaceTooltipLines || []) {
+      const lines=tooltip.split('\n'),index=lines.indexOf(replacement.from);
+      if(index>=0)lines.splice(index,1,...replacement.to);
+      tooltip=lines.join('\n');
+    }
     for (const line of patch.removeTooltipLines || []) tooltip = tooltip.split('\n').filter((item) => item !== line).join('\n');
-    if (patch.notes?.length) tooltip = [tooltip, ...patch.notes.map((note) => `2.314 · ${note}`)].filter(Boolean).join('\n');
+    if(Number.isFinite(patch.rangeStun)){
+      const lines=tooltip.split('\n').filter((line)=>!/^스턴 수치\s+/.test(line));
+      if(!lines.includes('범위 스턴'))lines.push('범위 스턴');
+      const stunIndex=lines.indexOf('범위 스턴');
+      lines.splice(stunIndex+1,0,`스턴 수치 ${patch.rangeStun}`); tooltip=lines.join('\n');
+      detail.referenceEffects=(detail.referenceEffects||[]).filter((effect)=>effect.label!=='범위 스턴');
+      detail.referenceEffects.push({label:'범위 스턴',value:String(patch.rangeStun),source:`ORDR ${mapPatch.mapVersion}`});
+    }
     detail.tooltip = tooltip;
   }
 }
@@ -281,11 +293,13 @@ function renderUpgradeSummary(container,unit){
   const tooltip=state.details.get(Number(unit.id))?.tooltip||'';
   const commands=tooltip.split('\n').map((line)=>line.trim()).filter((line)=>/\([a-z][a-z0-9 _-]*\)$/i.test(line));
   const commandSummary=commands.length?`<div class="upgrade-commands">${commands.map((command)=>`<strong>${escapeHtml(command)}</strong>`).join('')}</div>`:'';
+  const referenceEffects=state.details.get(Number(unit.id))?.referenceEffects||[];
   const traits=(unit.skills||[]).map((code)=>{
     const name=skillNames[code]||code,effects=parseEffectKinds(tooltip,name);
-    const values=[...new Set(effects.map(({value})=>`${/감소/.test(name)?'-':''}${value}`))];
+    const reference=referenceEffects.filter((effect)=>effect.label===name);
+    const values=[...new Set((effects.length?effects:reference).map(({value})=>typeof value==='number'&&/감소/.test(name)?`-${value}`:String(value)))];
     return `<span>${escapeHtml(name)}${values.length?` <b>${escapeHtml(values.join(' / '))}</b>`:''}</span>`;
-  }).join('')||'<em>보유 특성 없음</em>';
+  }).join('')||referenceEffects.map((effect)=>`<span>${escapeHtml(effect.label)} <b>${escapeHtml(String(effect.value))}</b></span>`).join('')||'<em>보유 특성 없음</em>';
   container.innerHTML=`<img class="upgrade-summary-image" src="${unit.image}" alt=""><div class="upgrade-summary-content"><div class="upgrade-summary-title"><strong>${escapeHtml(unit.name)}</strong><span>${escapeHtml(unit.group||unit.level_text||'')}</span></div>${commandSummary}<div class="upgrade-upper-requirements">${upperRequirements}</div><div class="upgrade-requirements"><label>흔함 유닛</label>${common}</div><div class="upgrade-traits">${traits}</div></div>`;
   container.querySelectorAll('[data-upgrade-summary-unit]').forEach((button)=>button.addEventListener('click',()=>{
     const target=state.byId.get(parseUnitId(button.dataset.upgradeSummaryUnit));
@@ -388,15 +402,19 @@ function craftUnit(id){
 }
 
 function updateEffectTotals() {
-  const armorKinds=new Map(),slowKinds=new Map(),traits=new Map();
+  const armorKinds=new Map(),slowKinds=new Map(),stunKinds=new Map(),traits=new Map();
   for(const [id,count] of state.owned){
     const unit=state.byId.get(id); const detail=state.details.get(Number(id)); const tooltip=detail?.tooltip;
-    for(const effect of parseEffectKinds(tooltip,'방어력 감소'))armorKinds.set(effect.kind,(armorKinds.get(effect.kind)||0)+effect.value*count);
-    for(const effect of parseEffectKinds(tooltip,'이동속도 감소'))slowKinds.set(effect.kind,(slowKinds.get(effect.kind)||0)+effect.value*count);
+    const localArmor=parseEffectKinds(tooltip,'방어력 감소'),localSlow=parseEffectKinds(tooltip,'이동속도 감소'),localStun=parseEffectKinds(tooltip,'범위 스턴').filter((effect)=>!/발동\s*조건|발동|특강|특포/.test(effect.kind));
+    for(const effect of localArmor)armorKinds.set(effect.kind,(armorKinds.get(effect.kind)||0)+effect.value*count);
+    for(const effect of localSlow)slowKinds.set(effect.kind,(slowKinds.get(effect.kind)||0)+effect.value*count);
+    for(const effect of localStun)stunKinds.set(effect.kind,(stunKinds.get(effect.kind)||0)+effect.value*count);
+    const referenceStun=(detail?.referenceEffects||[]).find((effect)=>effect.label==='범위 스턴'&&effect.value!=='??'&&Number.isFinite(Number(effect.value)));
+    if(referenceStun&&!localStun.length)stunKinds.set('범위 스턴',(stunKinds.get('범위 스턴')||0)+Math.abs(Number(referenceStun.value))*count);
     for(const skill of unit?.skills||[])traits.set(skill,(traits.get(skill)||0)+count);
   }
   const armor=[...armorKinds.values()].reduce((a,b)=>a+b,0),slow=[...slowKinds.values()].reduce((a,b)=>a+b,0);
-  $('#armor-total').textContent=armor||'—'; $('#slow-total').textContent=slow||'—'; renderEffectBreakdown('#armor-summary',armorKinds); renderEffectBreakdown('#slow-summary',slowKinds);
+  $('#armor-total').textContent=armor||'—'; $('#slow-total').textContent=slow||'—'; renderEffectBreakdown('#armor-summary',armorKinds); renderEffectBreakdown('#slow-summary',slowKinds); renderEffectBreakdown('#stun-summary',stunKinds,false);
   const traitList=$('#trait-list');
   traitList.innerHTML=traits.size?[...traits].sort((a,b)=>b[1]-a[1]).map(([code,count])=>`<b data-trait-code="${escapeHtml(code)}">${escapeHtml(skillNames[code]||code)}${count>1?` ×${count}`:''}</b>`).join(''):'<i>없음</i>';
   traitList.querySelectorAll('[data-trait-code]').forEach((badge)=>{
@@ -414,7 +432,7 @@ function clearTraitUnitHighlight(){document.querySelectorAll('.owned-upper-unit.
 function parseEffectKinds(tooltip,label){
   if(!tooltip)return[]; const lines=tooltip.split('\n'); const effects=[];
   for(let index=0;index<lines.length;index++){
-    if(!lines[index].includes(label))continue;
+    if(!lines[index].replace(/\s+/g,'').includes(label.replace(/\s+/g,'')))continue;
     for(let cursor=index+1;cursor<Math.min(lines.length,index+4);cursor++){
       const match=lines[cursor].match(/(.+?형식)(?:\s+최대)?\s*(-?\d+(?:\.\d+)?)/);
       if(match){effects.push({kind:match[1].replace(/\s*형식$/,'').trim(),value:Math.abs(Number(match[2]))});break;}
@@ -423,9 +441,10 @@ function parseEffectKinds(tooltip,label){
   }
   return effects;
 }
-function renderEffectBreakdown(selector,kinds){
+function renderEffectBreakdown(selector,kinds,showKinds=true){
   const target=$(selector); const total=[...kinds.values()].reduce((a,b)=>a+b,0);
-  target.innerHTML=`<strong>${total}</strong>${[...kinds].map(([kind,value])=>`<b title="${escapeHtml(kind)}">${escapeHtml(kind)} ${value}</b>`).join('')}`;
+  const format=(value)=>Number.isInteger(value)?String(value):String(Number(value.toFixed(3)));
+  target.innerHTML=`<strong>${format(total)}</strong>${showKinds?[...kinds].map(([kind,value])=>`<b title="${escapeHtml(kind)}">${escapeHtml(kind)} ${format(value)}</b>`).join(''):''}`;
 }
 
 function showUnitTooltip(row,unit){
@@ -458,7 +477,8 @@ function preferenceTags(text=''){
 function renderTooltipBody(body,text){
   const lines=text.split('\n').filter(Boolean); body.innerHTML='';
   lines.forEach((line,index)=>{
-    const displayLine=line.replace(/^(해적선(?:x\d+)?) \(히든조합\)$/,'$1 (기타)');
+    const stunValue=line.match(/^스턴 수치\s+(-?\d+(?:\.\d+)?)(\s*\(특강시\s*-?\d+(?:\.\d+)?\))?$/);
+    const displayLine=(stunValue?`${stunValue[1]}${stunValue[2]||''}`:line).replace(/^(해적선(?:x\d+)?) \(히든조합\)$/,'$1 (기타)');
     const isPreference=/좋아요\s*-?\d+/.test(displayLine),preference=isPreference?preferenceTag(displayLine):null;
     if(isPreference&&!preference)return;
     const item=document.createElement('div'); item.textContent=preference?.label||displayLine;
@@ -468,7 +488,7 @@ function renderTooltipBody(body,text){
     }
     else if(preference)item.className=`tooltip-preference ${preference.kind}`;
     else if(/\([a-z][a-z0-9 _-]*\)$/i.test(displayLine))item.className='tooltip-command';
-    else if(/형식/.test(displayLine))item.className='tooltip-detail';
+    else if(/형식/.test(displayLine)||stunValue)item.className='tooltip-detail';
     else item.className='tooltip-trait';
     if(item.classList.contains('tooltip-preference')&&!body.lastElementChild?.classList.contains('tooltip-preference'))item.classList.add('section-start');
     if(index>0&&item.className==='tooltip-trait'&&body.lastElementChild?.className!=='tooltip-trait')item.classList.add('section-start');
@@ -495,7 +515,7 @@ function renderCandidates(candidateItems) {
       const lacked=[...(c.lackedMaterials||new Map())];
       const materials=lacked.length?lacked.map(([id,quantity])=>{const material=state.byId.get(id);return `<span class="material missing ${ORDRCore.SPECIAL_IDS.has(id)?'special':''}">${escapeHtml(material?.name||`#${id}`)} <b>×${quantity}</b></span>`;}).join(''):'<span class="material fulfilled">재료 충족</span>';
       const wispUsage=c.wispUsed?`<span class="material wisp-used">선택 위습 <b>×${c.wispUsed}</b></span>`:'';
-      card.innerHTML=`<button type="button" class="candidate-top" aria-expanded="${!candidateCollapsed}" title="${escapeHtml(c.unit.name)} 접기/펼치기"><div><h3>${escapeHtml(c.unit.name)}</h3></div><div class="progress"><strong>${c.progress}%</strong><span>${c.ready?'제작 가능':`부족 ${c.missingTotal}`}</span></div></button><div class="candidate-body">${c.hasSpecial?'<div class="special-alert">◆ 기타 재료 필요</div>':''}<div class="materials">${materials}${wispUsage}</div><button class="craft" ${c.ready?'':'disabled'}>조합 실행</button></div>`;
+      card.innerHTML=`<button type="button" class="candidate-top" aria-expanded="${!candidateCollapsed}" title="${escapeHtml(c.unit.name)} 접기/펼치기"><div class="candidate-title"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10l5-5 5 5"/></svg><h3>${escapeHtml(c.unit.name)}</h3></div><div class="progress"><strong>${c.progress}%</strong><span>${c.ready?'제작 가능':`부족 ${c.missingTotal}`}</span></div></button><div class="candidate-body">${c.hasSpecial?'<div class="special-alert">◆ 기타 재료 필요</div>':''}<div class="materials">${materials}${wispUsage}</div><button class="craft" ${c.ready?'':'disabled'}>조합 실행</button></div>`;
       card.querySelector('.candidate-top').addEventListener('click',()=>{const next=card.classList.toggle('collapsed');state.collapsedCandidates[next?'add':'delete'](candidateId);card.querySelector('.candidate-top').setAttribute('aria-expanded',String(!next));});
       card.querySelector('.craft').addEventListener('click',()=>{snapshot(); if(!ORDRCore.craft(c,state.owned))state.history.pop(); renderAll();}); groupList.append(card);
     }
@@ -529,9 +549,9 @@ function bindEvents(){
   // 헤더 후원 버튼은 내린 채로 둔다 (2026-08-01, 디스코드 관리자 요청).
   // 버튼이 없는 상태로 이 줄을 살려두면 null에 onclick을 걸어 초기화가 멈춘다.
   // $('#support-developer').onclick=()=>$('#support-dialog').showModal();
-  // 후원 경로는 헤더 로고(얼굴) 하나뿐이다. 안내를 따로 두지 않았으므로
-  // 이 줄이 사라지면 앱 안에서 후원 다이얼로그에 닿을 방법이 없어진다.
+  // QR 경로는 헤더 로고와 도움말의 커피 아이콘에만 둔다.
   $('#support-egg').onclick=()=>$('#support-dialog').showModal();
+  $('#help-coffee-egg').onclick=()=>{$('#help-dialog').close();$('#support-dialog').showModal();};
   $('#upgrade-path-back').onclick=()=>{const id=state.upgradePathHistory.pop();if(id!==undefined){hideUnitTooltip();showUpgradePaths(state.byId.get(id));}};
   $('#support-dialog').addEventListener('click',(event)=>{
     const dialog=event.currentTarget,rect=dialog.getBoundingClientRect();

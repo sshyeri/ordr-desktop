@@ -46,11 +46,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .effect-total strong { font-size: 15px; }
 .effect-total.armor strong { color: var(--amber); }
 .effect-total.slow strong { color: var(--blue); }
+.effect-total.stun strong { color: var(--teal); }
 .effect-breakdown { display: flex; align-items: center; gap: 4px; }
 .effect-breakdown strong { min-width: 24px; }
 .effect-breakdown b { padding: 2px 5px; border: 1px solid currentColor; border-radius: 9px; font-size: 10px; font-weight: 700; white-space: nowrap; }
 .effect-total.armor .effect-breakdown b { color: #ffd477; background: #302615; }
 .effect-total.slow .effect-breakdown b { color: #91c5ff; background: #14263a; }
+.effect-total.stun .effect-breakdown b { color: #7ee4d0; background: #13332d; }
 .trait-summary { min-width: 0; display: flex; align-items: center; gap: 8px; }
 .trait-list { display: flex; flex-wrap: wrap; gap: 4px; overflow: visible; }
 .trait-list b { padding: 3px 6px; border: 1px solid #33465a; border-radius: 10px; background: #182533; color: #c8d5e2; font-size: 10px; white-space: nowrap; cursor: default; transition: border-color .15s, color .15s, background .15s; }
@@ -121,6 +123,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .help-dialog .dialog-head { align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .help-dialog .dialog-head h2 { margin-top: 2px; font-size: 18px; }
 .help-dialog .dialog-head p { margin: 4px 0 0; font-size: 10px; }
+.help-dialog .dialog-head .help-data-note { margin-top: 2px; color: #7f93a8; font-size: 9px; }
+.coffee-egg { width: 31px; min-width: 31px; padding: 0; border: 1px solid #3b4a5c; border-radius: 6px; background: #15202d; color: #9aabba; font-size: 13px; }
+.coffee-egg:hover { border-color: #76633d; background: #292319; color: #f1cf7a; }
 .help-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .help-grid section { padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: #0e1721; }
 .help-grid h3 { margin: 0 0 8px; color: #dbe9f6; font-size: 12px; }
@@ -235,15 +240,19 @@ h1, h2, h3, p { margin: 0; }
 .candidate-group.collapsed .candidate-group-head { border-bottom: 0; }
 .candidate-group.collapsed .candidate-group-head i { transform: rotate(180deg); }
 .candidate-group.collapsed .candidate-group-list { display: none; }
-.candidate { margin-bottom: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+.candidate { margin-bottom: 8px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
 .candidate.ready { border-color: #2a725f; }
 .candidate.needs-special { border-color: #735b2a; box-shadow: inset 4px 0 var(--amber); padding-left: 12px; }
-.candidate-top { width: 100%; display: flex; justify-content: space-between; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
+.candidate-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
+.candidate-title { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.candidate-title svg { width: 11px; height: 11px; flex: 0 0 11px; fill: none; stroke: #7f93a8; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s,color .15s; }
 .candidate-top:hover h3 { color: var(--teal); }
-.candidate.collapsed { padding-bottom: 8px; }
+.candidate-top:hover .candidate-title svg { color: var(--teal); stroke: currentColor; }
+.candidate.collapsed { padding-block: 8px; }
+.candidate.collapsed .candidate-title svg { transform: rotate(180deg); }
 .candidate.collapsed .candidate-body { display: none; }
 .candidate small { color: var(--muted); font-size: 10px; }
-.candidate h3 { margin-top: 2px; font-size: 15px; }
+.candidate h3 { margin: 0; line-height: 1.2; font-size: 15px; }
 .progress { text-align: right; }
 .progress strong, .progress span { display: block; }
 .progress strong { color: var(--teal); }

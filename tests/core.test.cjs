@@ -36,6 +36,25 @@ test('ORDR 2.314 data patch updates recipe and skill metadata', () => {
   assert.equal(allById.get(283).skills.includes('docking'), false);
   assert.equal(allById.get(283).skills.includes('mshield'), true);
   assert.equal(allById.get(114).name, '우솝 임팩트 다이얼');
+  assert.equal(mapPatchData.units.length, 5);
+  assert.ok(mapPatchData.units.every((patch) => !patch.notes));
+  assert.equal(mapPatchData.units.find((patch) => patch.id === 305).rangeStun, 1);
+  assert.equal(mapPatchData.units.find((patch) => patch.id === 306).rangeStun, 1);
+});
+
+test('reference range stun effects contain numeric values only', () => {
+  const details = JSON.parse(fs.readFileSync(path.join(root, 'data', 'unit-details.json'), 'utf8'));
+  const effects = details.flatMap((detail) => detail.referenceEffects || []);
+  assert.ok(effects.length > 0);
+  assert.ok(effects.every((effect) => effect.label === '범위 스턴'));
+  assert.ok(effects.every((effect) => /^-?\d+(?:\.\d+)?$/.test(String(effect.value))));
+  assert.equal(details.find((detail) => detail.id === 114).referenceEffects.find((effect) => effect.label === '범위 스턴').value, '0.17');
+  assert.ok(details.find((detail) => detail.id === 114).tooltip.includes('범위 스턴\n스턴 수치 0.17'));
+  assert.deepEqual(details.find((detail) => detail.id === 179).referenceEffects.find((effect) => effect.label === '범위 스턴'), {label:'범위 스턴',value:'1.1',enhancedValue:'1.8',source:'시온스 ORDR 2.310 개인용'});
+  assert.ok(details.find((detail) => detail.id === 222).tooltip.includes('범위 스턴\n스턴 수치 0.8 (특강시 1.1)'));
+  assert.ok(details.every((detail) => !detail.tooltip.includes('시온스 2.310 참고 특성')));
+  assert.ok(details.every((detail) => !/범위\s*스턴\s*\(스턴\)/.test(detail.tooltip)));
+  assert.ok(details.filter((detail) => detail.referenceEffects?.some((effect) => effect.label === '범위 스턴')).every((detail) => detail.tooltip.split('\n').includes('범위 스턴')));
 });
 
 test('zombie is excluded from special and calculation material sets', () => {
