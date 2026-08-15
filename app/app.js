@@ -70,8 +70,18 @@ function applyMapPatch(mapPatch) {
 }
 
 function bindUpdater(){
-  const button=$('#update-status'),label=$('#update-label');
-  let status='checking';
+  const button=$('#update-status'),label=$('#update-label'),toast=$('#update-toast'),toastVersion=$('#update-toast-version');
+  let status='checking',toastTimer=null;
+  const hideToast=()=>{toast.hidden=true;clearTimeout(toastTimer);toastTimer=null;};
+  const showToast=(version)=>{
+    toastVersion.textContent=`v${version}`;toast.hidden=false;clearTimeout(toastTimer);
+    toastTimer=setTimeout(hideToast,6000);
+  };
+  const downloadUpdate=()=>{
+    if(status!=='available')return;
+    hideToast();setStatus({status:'loading'});
+    window.ordrDesktop.updater.download().catch(()=>setStatus({status:'error'}));
+  };
   const setStatus=(payload)=>{
     status=payload.status; button.dataset.state=status; button.style.setProperty('--update-progress',`${payload.percent||0}%`);
     const labels={
@@ -86,13 +96,14 @@ function bindUpdater(){
     label.textContent=labels[status]||'업데이트 확인';
     button.disabled=status==='checking'||status==='loading'||status==='downloading';
     button.title=status==='available'?'클릭하여 업데이트 다운로드':status==='downloaded'?'클릭하여 재시작 후 설치':status==='not-available'?'클릭하여 업데이트 다시 확인':status==='error'?'확인에 실패했습니다. 클릭하여 다시 시도':'업데이트 상태';
+    if(status==='available')showToast(payload.version);
+    else hideToast();
   };
   window.ordrDesktop.updater.onStatus(setStatus);
+  $('#update-toast-later').addEventListener('click',hideToast);
+  $('#update-toast-download').addEventListener('click',downloadUpdate);
   button.addEventListener('click',()=>{
-    if(status==='available'){
-      setStatus({status:'loading'});
-      window.ordrDesktop.updater.download().catch(()=>setStatus({status:'error'}));
-    }
+    if(status==='available')downloadUpdate();
     else if(status==='downloaded'){
       setStatus({status:'loading'});
       setTimeout(()=>window.ordrDesktop.updater.install(),80);

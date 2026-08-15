@@ -31,6 +31,11 @@
     -->
   </header>
 
+  <aside id="update-toast" class="update-toast" role="status" aria-live="polite" hidden>
+    <div><strong>새 업데이트가 있습니다</strong><span id="update-toast-version"></span></div>
+    <div class="update-toast-actions"><button id="update-toast-later" class="ghost" type="button">나중에</button><button id="update-toast-download" class="primary" type="button">다운로드</button></div>
+  </aside>
+
   <div class="top-panels">
     <section class="status-panel" aria-label="현재 상태">
       <div class="owned-upper" id="owned-upper" aria-label="현재 보유 중인 상위 유닛">
@@ -101,7 +106,7 @@
 
   <dialog id="help-dialog" class="help-dialog">
     <form method="dialog">
-      <div class="dialog-head"><div><span class="eyebrow">QUICK GUIDE · ORDR 2.314</span><h2>도움말</h2><p>ORDR 2.314 기준 조합과 유닛 정보를 빠르게 확인하는 로컬 도우미입니다.</p><p class="help-data-note">유닛별 상세 데이터들은 제가 즐겨보는 조합기들에서 가져온 수치입니다. 부정확할 수 있습니다.</p></div><button value="cancel" class="icon-button" aria-label="닫기">×</button></div>
+      <div class="dialog-head"><div><span class="eyebrow">QUICK GUIDE · ORDR 2.314</span><h2>도움말</h2><p>ORDR 2.314 기준 조합과 유닛 정보를 빠르게 확인하는 로컬 도우미입니다.</p><p class="help-data-note">유닛별 상세 데이터들은 제가 즐겨보는 조합기들에서 가져온 수치입니다. 부정확할 수 있습니다.</p><a class="help-repository-link" href="https://github.com/sshyeri/ordr-desktop" target="_blank" rel="noreferrer">GitHub · sshyeri/ordr-desktop ↗</a></div><button value="cancel" class="icon-button" aria-label="닫기">×</button></div>
       <div class="help-grid">
         <section><h3>기본 조작</h3><dl><div><dt>이미지·이름 클릭</dt><dd>유닛 +1</dd></div><div><dt>이미지·이름 우클릭</dt><dd>유닛 -1</dd></div><div><dt>✓</dt><dd>필요 재료를 소비하고 해당 유닛 조합</dd></div><div><dt>−</dt><dd>보유 유닛 -1</dd></div><div><dt>↗</dt><dd>상위 조합 경로와 조합 명령어 확인</dd></div></dl></section>
         <section><h3>단축키</h3><dl><div><dt>Q W E R A S D F G</dt><dd>표시된 흔함 유닛 +1</dd></div><div><dt>Shift + 유닛 키</dt><dd>해당 흔함 유닛 -1</dd></div><div><dt>Z / Shift+Z</dt><dd>되돌리기 / 앞으로</dd></div><div><dt>T / Shift+T</dt><dd>전체 초기화 / 이전 상태</dd></div><div><dt>Ctrl + − / + / 0</dt><dd>축소 / 확대 / 기본 배율</dd></div><div><dt>Esc</dt><dd>모달 닫기, 선택 필터 해제</dd></div></dl></section>

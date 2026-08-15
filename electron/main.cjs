@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const appIcon = path.join(__dirname, '..', 'app', 'assets', 'brand-icon.png');
@@ -23,6 +23,10 @@ function createWindow() {
     },
   });
   win.webContents.setZoomFactor(1.4);
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url === 'https://github.com/sshyeri/ordr-desktop') shell.openExternal(url);
+    return { action: 'deny' };
+  });
   win.loadFile(path.join(__dirname, '..', 'app', 'index.html'));
   win.webContents.on('did-finish-load', () => {
     win.webContents.setZoomFactor(1.4);
@@ -53,12 +57,18 @@ function setupAutoUpdates(win) {
     if (!win.isDestroyed()) win.webContents.send('update:status', { status, currentVersion: app.getVersion(), ...detail });
   };
   ipcMain.handle('update:check', async () => {
-    if (!app.isPackaged) { sendStatus('not-available'); return { development: true }; }
+    if (!app.isPackaged) {
+      sendStatus(process.env.ORDR_PREVIEW_UPDATE_AVAILABLE ? 'available' : 'not-available', process.env.ORDR_PREVIEW_UPDATE_AVAILABLE ? { version: '1.0.17' } : {});
+      return { development: true };
+    }
     return autoUpdater.checkForUpdates();
   });
   ipcMain.handle('update:download', () => app.isPackaged ? autoUpdater.downloadUpdate() : null);
   ipcMain.on('update:install', () => { if (app.isPackaged) autoUpdater.quitAndInstall(false, true); });
-  if (!app.isPackaged) { win.webContents.once('did-finish-load', () => sendStatus('not-available')); return; }
+  if (!app.isPackaged) {
+    win.webContents.once('did-finish-load', () => sendStatus(process.env.ORDR_PREVIEW_UPDATE_AVAILABLE ? 'available' : 'not-available', process.env.ORDR_PREVIEW_UPDATE_AVAILABLE ? { version: '1.0.17' } : {}));
+    return;
+  }
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.on('checking-for-update', () => sendStatus('checking'));
