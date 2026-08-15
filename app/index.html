@@ -12,6 +12,7 @@
     <div class="brand"><button id="support-egg" class="brand-mark-button" type="button"><img class="brand-mark" src="assets/brand-icon.png" alt="ord local helper"></button><div><strong>ord local helper</strong><small>ORDR 2.314</small></div></div>
     <label class="search"><span>⌕</span><input id="search" placeholder="유닛 검색 — Enter로 이동" autocomplete="off" /></label>
     <button class="ghost status-visibility" data-toggle-status aria-pressed="false" aria-label="현재 상태 창 안 보이기" title="현재 상태 창 안 보이기"></button>
+    <button id="toggle-memo" class="memo-button outline" type="button" aria-expanded="false" title="메모 열기">✎ 메모</button>
     <button id="open-exclusions" class="outline">계산 제외 설정 <span id="exclude-count">0</span></button>
     <button id="update-status" class="update-status" data-state="checking" type="button" title="업데이트 상태"><span class="update-spinner" aria-hidden="true"></span><span id="update-label">업데이트 확인 중</span><span class="update-progress" aria-hidden="true"><i></i></span></button>
     <div class="stat armor"><span>방깎 합계</span><strong id="armor-total">수치 미입력</strong></div>
@@ -34,6 +35,14 @@
   <aside id="update-toast" class="update-toast" role="status" aria-live="polite" hidden>
     <div><strong>새 업데이트가 있습니다</strong><span id="update-toast-version"></span></div>
     <div class="update-toast-actions"><button id="update-toast-later" class="ghost" type="button">나중에</button><button id="update-toast-download" class="primary" type="button">다운로드</button></div>
+  </aside>
+
+  <aside id="memo-panel" class="memo-panel" aria-label="메모" hidden>
+    <header id="memo-drag-handle" class="memo-panel-toolbar"><div class="memo-heading"><i></i><strong>메모</strong><button id="toggle-memo-sidebar" type="button" aria-pressed="true" aria-label="메모 목록 숨기기" title="메모 목록 숨기기">☷</button></div><label aria-label="메모창 투명도" title="투명도"><input id="memo-opacity" type="range" min="40" max="100" step="5" value="100"></label><button id="close-memo" class="memo-close" type="button" aria-label="메모 닫기">✕</button></header>
+    <div class="memo-body">
+      <section class="memo-sidebar"><div class="memo-list-tools"><input id="memo-search" type="search" placeholder="검색" autocomplete="off"><button id="new-memo" type="button" aria-label="새 메모" title="새 메모">+</button></div><div id="memo-list" class="memo-list"></div></section><div id="memo-sidebar-resizer" class="memo-sidebar-resizer" title="드래그하여 목록 너비 조절"></div>
+      <section id="memo-editor" class="memo-editor"><input id="memo-title" class="memo-title" type="text" placeholder="제목" autocomplete="off"><textarea id="memo-text" placeholder="내용을 입력하세요" spellcheck="false"></textarea></section>
+    </div>
   </aside>
 
   <div class="top-panels">
@@ -110,7 +119,7 @@
       <div class="help-grid">
         <section><h3>기본 조작</h3><dl><div><dt>이미지·이름 클릭</dt><dd>유닛 +1</dd></div><div><dt>이미지·이름 우클릭</dt><dd>유닛 -1</dd></div><div><dt>✓</dt><dd>필요 재료를 소비하고 해당 유닛 조합</dd></div><div><dt>−</dt><dd>보유 유닛 -1</dd></div><div><dt>↗</dt><dd>상위 조합 경로와 조합 명령어 확인</dd></div></dl></section>
         <section><h3>단축키</h3><dl><div><dt>Q W E R A S D F G</dt><dd>표시된 흔함 유닛 +1</dd></div><div><dt>Shift + 유닛 키</dt><dd>해당 흔함 유닛 -1</dd></div><div><dt>Z / Shift+Z</dt><dd>되돌리기 / 앞으로</dd></div><div><dt>T / Shift+T</dt><dd>전체 초기화 / 이전 상태</dd></div><div><dt>Ctrl + − / + / 0</dt><dd>축소 / 확대 / 기본 배율</dd></div><div><dt>Esc</dt><dd>모달 닫기, 선택 필터 해제</dd></div></dl></section>
-        <section class="help-wide"><h3>주요 기능</h3><div class="help-features"><p><b>조합 진행률</b><span>보유 중간 유닛과 하위 흔함 유닛을 모두 재귀 계산합니다. 흔함 선택 위습은 부족한 흔함 유닛을 대신하며, 90% 이상은 분홍색·100%는 푸른색으로 표시됩니다.</span></p><p><b>현재 상태</b><span>보유 상위 유닛과 방깎·이감 종류별 합계, 보유 특성을 표시합니다. 특성에 마우스를 올리면 관련 유닛이 강조됩니다.</span></p><p><b>검색·스킬 필터</b><span>검색어와 일치하는 모든 등급의 유닛을 강조합니다. 스킬 필터는 같은 항목을 다시 누르거나 Esc를 누르면 전체로 돌아갑니다.</span></p><p><b>조합 후보</b><span>진행률 80% 이상을 상위 등급부터 표시하며, 같은 등급 안에서는 진행률 내림차순으로 정렬합니다.</span></p><p><b>상위 조합 보기</b><span>그래프 배경을 드래그해 이동하고 유닛을 눌러 상세 페이지로 이동합니다. 좌측 하단 버튼으로 이전 유닛으로 돌아갑니다.</span></p><p><b>계산 제외 설정</b><span>원하지 않는 등급이나 기타 재료를 필요 수량·진행률·부족 수량 계산에서 제외합니다.</span></p><p><b>도우미에 없는 유닛</b><span>별도 유닛을 행 클릭으로 추가하고 − 버튼으로 제거합니다. 이 유닛도 현재 상태와 효과 합계에 반영됩니다.</span></p><p><b>업데이트</b><span>실행 시 새 버전을 확인합니다. 업데이트가 있으면 상단 버튼에서 다운로드하고 설치할 수 있습니다.</span></p></div></section>
+        <section class="help-wide"><h3>주요 기능</h3><div class="help-features"><p><b>조합 진행률</b><span>보유 중간 유닛과 하위 흔함 유닛을 모두 재귀 계산합니다. 흔함 선택 위습은 부족한 흔함 유닛을 대신하며, 90% 이상은 분홍색·100%는 푸른색으로 표시됩니다.</span></p><p><b>현재 상태</b><span>보유 상위 유닛과 방깎·이감 종류별 합계, 보유 특성을 표시합니다. 특성에 마우스를 올리면 관련 유닛이 강조됩니다.</span></p><p><b>검색·스킬 필터</b><span>검색어와 일치하는 모든 등급의 유닛을 강조합니다. 스킬 필터는 같은 항목을 다시 누르거나 Esc를 누르면 전체로 돌아갑니다.</span></p><p><b>조합 후보</b><span>진행률 80% 이상을 상위 등급부터 표시하며, 같은 등급 안에서는 진행률 내림차순으로 정렬합니다.</span></p><p><b>상위 조합 보기</b><span>그래프 배경을 드래그해 이동하고 유닛을 눌러 상세 페이지로 이동합니다. 좌측 하단 버튼으로 이전 유닛으로 돌아갑니다.</span></p><p><b>계산 제외 설정</b><span>원하지 않는 등급이나 기타 재료를 필요 수량·진행률·부족 수량 계산에서 제외합니다.</span></p><p><b>도우미에 없는 유닛</b><span>별도 유닛을 행 클릭으로 추가하고 − 버튼으로 제거합니다. 이 유닛도 현재 상태와 효과 합계에 반영됩니다.</span></p><p><b>메모</b><span>입력한 내용은 이 PC에 즉시 자동 저장되며, 직접 삭제할 때까지 재실행과 업데이트 후에도 유지됩니다.</span></p><p><b>업데이트</b><span>실행 시 새 버전을 확인합니다. 업데이트가 있으면 상단 버튼에서 다운로드하고 설치할 수 있습니다.</span></p></div></section>
       </div>
       <div class="dialog-actions"><button id="help-coffee-egg" class="coffee-egg" type="button" aria-label="커피">☕</button><button value="default" class="primary">확인</button></div>
     </form>
