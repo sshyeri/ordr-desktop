@@ -1,6 +1,6 @@
 const state = {
   units: [], allUnits: [], byId: new Map(), owned: new Map(), history: [], future: [],
-  excludedIds: new Set(), excludedLevels: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), collapsedUnitGroups: new Set(), activeSkill: '', upgradePathHistory: [],
+  excludedIds: new Set(), excludedLevels: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), collapsedCandidates: new Set(), collapsedUnitGroups: new Set(), activeSkill: '', upgradePathHistory: [],
 };
 const skillNames={damageb:'공격력 버프',speedb:'공격속도 버프',sky:'공중 공격',sstun:'단일 스턴',slow:'이동속도 감소',shield:'방어력 감소',stun:'범위 스턴',boss:'보스 피해',berserk:'광폭화',splash:'스플래시',last:'끝딜',rangetlpd:'범위 체력 비례 피해',blink:'순간이동',armorbreak:'아머브레이크',single:'단일 피해',regen:'회복',ignore:'방어 무시',docking:'마법 피해 증폭',life:'생명력',bombup:'폭발 피해',mshield:'마법 방어력 감소',udelete:'유닛 삭제',rangellpd:'범위 최대 체력 피해',rangenlpd:'범위 현재 체력 피해',singlelost:'단일 잃은 체력 피해',prefmagic:'마딜',prefphysical:'물딜',prefstory:'스토리'};
 const preferenceFilterCodes=['prefmagic','prefphysical','prefstory'];
@@ -17,10 +17,11 @@ const baseNames = new Map([[1,'루피'],[2,'조로'],[3,'나미'],[4,'우솝'],[
 const $ = (s) => document.querySelector(s);
 
 async function init() {
-  const [seedResponse, displayResponse, detailResponse] = await Promise.all([fetch('../data/units.seed.json'), fetch('../data/unit-display.json'), fetch('../data/unit-details.json')]);
+  const [seedResponse, displayResponse, detailResponse, mapPatchResponse] = await Promise.all([fetch('../data/units.seed.json'), fetch('../data/unit-display.json'), fetch('../data/unit-details.json'), fetch('../data/map-patches.json')]);
   const seed = await seedResponse.json();
   const display = await displayResponse.json();
   const details = await detailResponse.json(); state.details=new Map(details.map((item)=>[item.id,item]));
+  const mapPatch = await mapPatchResponse.json();
   const seedById = new Map(seed.map((u) => [u.id, u]));
   state.allUnits = display.map((meta) => {
     const source = seedById.get(meta.id) || {};
@@ -28,10 +29,32 @@ async function init() {
     const name = (baseNames.get(meta.id) || meta.name).replace(/\s*\([QWERASDFG]\)$/, '');
     return {...source, ...meta, name, group, image:`assets/units/${meta.id}.png`};
   });
+  applyMapPatch(mapPatch);
   state.allUnits.unshift({id:ORDRCore.WISP_ID,name:'흔함선택위습',group:'흔함',level:1,level_text:'흔함',mate_ids:[],skills:[],hotkey:'V',image:'assets/units/wisp.png'});
   state.units = state.allUnits.filter((u) => !excludedFromInput.has(u.id) && (u.group !== '기타' || ORDRCore.SPECIAL_IDS.has(u.id)) && boardColumns.flat().includes(u.group));
   state.byId = new Map(state.allUnits.map((u) => [u.id, u]));
   renderSkillFilter(); renderExtraUnits(); bindEvents(); bindUpdater(); renderBoard(); renderExclusions(); renderAll(); updateZoomLabel(await window.ordrDesktop.zoom.get()); requestAnimationFrame(updateStickyLayout);
+}
+
+function applyMapPatch(mapPatch) {
+  for (const patch of mapPatch.units || []) {
+    const unit = state.allUnits.find((item) => item.id === patch.id);
+    if (!unit) continue;
+    if (patch.name) unit.name = patch.name;
+    if (patch.removeMateIds?.length) unit.mate_ids = (unit.mate_ids || []).filter((id) => !patch.removeMateIds.includes(id));
+    if (patch.removeSkills?.length || patch.addSkills?.length) {
+      const skills = new Set(unit.skills || []);
+      for (const skill of patch.removeSkills || []) skills.delete(skill);
+      for (const skill of patch.addSkills || []) skills.add(skill);
+      unit.skills = [...skills];
+    }
+    const detail = state.details.get(patch.id);
+    if (!detail) continue;
+    let tooltip = detail.tooltip || '';
+    for (const line of patch.removeTooltipLines || []) tooltip = tooltip.split('\n').filter((item) => item !== line).join('\n');
+    if (patch.notes?.length) tooltip = [tooltip, ...patch.notes.map((note) => `2.314 · ${note}`)].filter(Boolean).join('\n');
+    detail.tooltip = tooltip;
+  }
 }
 
 function bindUpdater(){
@@ -467,11 +490,13 @@ function renderCandidates(candidateItems) {
     section.querySelector('.candidate-group-head').addEventListener('click',()=>{const next=section.classList.toggle('collapsed');state.collapsedCandidateGroups[next?'add':'delete'](groupName);section.querySelector('.candidate-group-head').setAttribute('aria-expanded',String(!next));});
     const groupList=section.querySelector('.candidate-group-list');
     for(const c of candidates){
-      const card=document.createElement('article'); card.className=`candidate ${c.ready?'ready':''} ${c.hasSpecial?'needs-special':''}`;
+      const candidateId=String(c.unit.id); const candidateCollapsed=state.collapsedCandidates.has(candidateId);
+      const card=document.createElement('article'); card.className=`candidate ${c.ready?'ready':''} ${c.hasSpecial?'needs-special':''} ${candidateCollapsed?'collapsed':''}`;
       const lacked=[...(c.lackedMaterials||new Map())];
       const materials=lacked.length?lacked.map(([id,quantity])=>{const material=state.byId.get(id);return `<span class="material missing ${ORDRCore.SPECIAL_IDS.has(id)?'special':''}">${escapeHtml(material?.name||`#${id}`)} <b>×${quantity}</b></span>`;}).join(''):'<span class="material fulfilled">재료 충족</span>';
       const wispUsage=c.wispUsed?`<span class="material wisp-used">선택 위습 <b>×${c.wispUsed}</b></span>`:'';
-      card.innerHTML=`<div class="candidate-top"><div><h3>${escapeHtml(c.unit.name)}</h3></div><div class="progress"><strong>${c.progress}%</strong><span>${c.ready?'제작 가능':`부족 ${c.missingTotal}`}</span></div></div>${c.hasSpecial?'<div class="special-alert">◆ 기타 재료 필요</div>':''}<div class="materials">${materials}${wispUsage}</div><button class="craft" ${c.ready?'':'disabled'}>조합 실행</button>`;
+      card.innerHTML=`<button type="button" class="candidate-top" aria-expanded="${!candidateCollapsed}" title="${escapeHtml(c.unit.name)} 접기/펼치기"><div><h3>${escapeHtml(c.unit.name)}</h3></div><div class="progress"><strong>${c.progress}%</strong><span>${c.ready?'제작 가능':`부족 ${c.missingTotal}`}</span></div></button><div class="candidate-body">${c.hasSpecial?'<div class="special-alert">◆ 기타 재료 필요</div>':''}<div class="materials">${materials}${wispUsage}</div><button class="craft" ${c.ready?'':'disabled'}>조합 실행</button></div>`;
+      card.querySelector('.candidate-top').addEventListener('click',()=>{const next=card.classList.toggle('collapsed');state.collapsedCandidates[next?'add':'delete'](candidateId);card.querySelector('.candidate-top').setAttribute('aria-expanded',String(!next));});
       card.querySelector('.craft').addEventListener('click',()=>{snapshot(); if(!ORDRCore.craft(c,state.owned))state.history.pop(); renderAll();}); groupList.append(card);
     }
     list.append(section);

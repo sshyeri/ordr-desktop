@@ -238,7 +238,10 @@ h1, h2, h3, p { margin: 0; }
 .candidate { margin-bottom: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
 .candidate.ready { border-color: #2a725f; }
 .candidate.needs-special { border-color: #735b2a; box-shadow: inset 4px 0 var(--amber); padding-left: 12px; }
-.candidate-top { display: flex; justify-content: space-between; }
+.candidate-top { width: 100%; display: flex; justify-content: space-between; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
+.candidate-top:hover h3 { color: var(--teal); }
+.candidate.collapsed { padding-bottom: 8px; }
+.candidate.collapsed .candidate-body { display: none; }
 .candidate small { color: var(--muted); font-size: 10px; }
 .candidate h3 { margin-top: 2px; font-size: 15px; }
 .progress { text-align: right; }

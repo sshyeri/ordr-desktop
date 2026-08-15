@@ -6,8 +6,18 @@ const core = require('../app/core.js');
 const root = path.join(__dirname, '..');
 const seedData = JSON.parse(fs.readFileSync(path.join(root, 'data', 'units.seed.json'), 'utf8'));
 const displayData = JSON.parse(fs.readFileSync(path.join(root, 'data', 'unit-display.json'), 'utf8'));
+const mapPatchData = JSON.parse(fs.readFileSync(path.join(root, 'data', 'map-patches.json'), 'utf8'));
 const displayById = new Map(displayData.map((unit) => [unit.id, unit]));
 const allUnits = seedData.map((unit) => ({ ...unit, ...displayById.get(unit.id), mate_ids: unit.mate_ids || [] }));
+for (const patch of mapPatchData.units) {
+  const unit = allUnits.find((item) => item.id === patch.id);
+  if (patch.name) unit.name = patch.name;
+  if (patch.removeMateIds) unit.mate_ids = unit.mate_ids.filter((id) => !patch.removeMateIds.includes(id));
+  const skills = new Set(unit.skills || []);
+  for (const skill of patch.removeSkills || []) skills.delete(skill);
+  for (const skill of patch.addSkills || []) skills.add(skill);
+  unit.skills = [...skills];
+}
 const allById = new Map(allUnits.map((unit) => [unit.id, unit]));
 
 const units = [
@@ -18,6 +28,15 @@ const units = [
   { id: 100, name: '결과', level: 5, mate_ids: [1, 1, 2, 16, 325] },
 ];
 const byId = new Map(units.map((u) => [u.id, u]));
+
+test('ORDR 2.314 data patch updates recipe and skill metadata', () => {
+  assert.equal(mapPatchData.mapVersion, '2.314');
+  assert.equal(mapPatchData.updatedAt, '2026-08-15');
+  assert.equal(allById.get(298).mate_ids.includes(367), false);
+  assert.equal(allById.get(283).skills.includes('docking'), false);
+  assert.equal(allById.get(283).skills.includes('mshield'), true);
+  assert.equal(allById.get(114).name, '우솝 임팩트 다이얼');
+});
 
 test('zombie is excluded from special and calculation material sets', () => {
   assert.equal(core.SPECIAL_IDS.has(31), false);

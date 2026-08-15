@@ -9,7 +9,7 @@
 <body>
   <header class="topbar">
     <button id="open-help" class="help-button" type="button" aria-label="도움말 열기" title="도움말">?</button>
-    <div class="brand"><button id="support-egg" class="brand-mark-button" type="button"><img class="brand-mark" src="assets/brand-icon.png" alt="ord local helper"></button><div><strong>ord local helper</strong></div></div>
+    <div class="brand"><button id="support-egg" class="brand-mark-button" type="button"><img class="brand-mark" src="assets/brand-icon.png" alt="ord local helper"></button><div><strong>ord local helper</strong><small>ORDR 2.314</small></div></div>
     <label class="search"><span>⌕</span><input id="search" placeholder="유닛 검색 — Enter로 이동" autocomplete="off" /></label>
     <button class="ghost status-visibility" data-toggle-status aria-pressed="false" aria-label="현재 상태 창 안 보이기" title="현재 상태 창 안 보이기"></button>
     <button id="open-exclusions" class="outline">계산 제외 설정 <span id="exclude-count">0</span></button>
@@ -101,7 +101,7 @@
 
   <dialog id="help-dialog" class="help-dialog">
     <form method="dialog">
-      <div class="dialog-head"><div><span class="eyebrow">QUICK GUIDE</span><h2>도움말</h2><p>원피스 랜덤 디펜스 조합을 빠르게 확인하는 로컬 도우미입니다.</p></div><button value="cancel" class="icon-button" aria-label="닫기">×</button></div>
+      <div class="dialog-head"><div><span class="eyebrow">QUICK GUIDE · ORDR 2.314</span><h2>도움말</h2><p>ORDR 2.314 기준 조합과 유닛 정보를 빠르게 확인하는 로컬 도우미입니다.</p></div><button value="cancel" class="icon-button" aria-label="닫기">×</button></div>
       <div class="help-grid">
         <section><h3>기본 조작</h3><dl><div><dt>이미지·이름 클릭</dt><dd>유닛 +1</dd></div><div><dt>이미지·이름 우클릭</dt><dd>유닛 -1</dd></div><div><dt>✓</dt><dd>필요 재료를 소비하고 해당 유닛 조합</dd></div><div><dt>−</dt><dd>보유 유닛 -1</dd></div><div><dt>↗</dt><dd>상위 조합 경로와 조합 명령어 확인</dd></div></dl></section>
         <section><h3>단축키</h3><dl><div><dt>Q W E R A S D F G</dt><dd>표시된 흔함 유닛 +1</dd></div><div><dt>Shift + 유닛 키</dt><dd>해당 흔함 유닛 -1</dd></div><div><dt>Z / Shift+Z</dt><dd>되돌리기 / 앞으로</dd></div><div><dt>T / Shift+T</dt><dd>전체 초기화 / 이전 상태</dd></div><div><dt>Ctrl + − / + / 0</dt><dd>축소 / 확대 / 기본 배율</dd></div><div><dt>Esc</dt><dd>모달 닫기, 선택 필터 해제</dd></div></dl></section>
