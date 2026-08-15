@@ -2,6 +2,8 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const appIcon = path.join(__dirname, '..', 'app', 'assets', 'brand-icon.png');
+const baseZoomFactor = 1.26;
+const defaultZoom = 1;
 
 app.setAppUserModelId('kr.ordr.helper');
 
@@ -22,14 +24,14 @@ function createWindow() {
       sandbox: true,
     },
   });
-  win.webContents.setZoomFactor(1.4);
+  win.webContents.setZoomFactor(baseZoomFactor * defaultZoom);
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url === 'https://github.com/sshyeri/ordr-desktop') shell.openExternal(url);
     return { action: 'deny' };
   });
   win.loadFile(path.join(__dirname, '..', 'app', 'index.html'));
   win.webContents.on('did-finish-load', () => {
-    win.webContents.setZoomFactor(1.4);
+    win.webContents.setZoomFactor(baseZoomFactor * defaultZoom);
     win.webContents.executeJavaScript("document.querySelector('#zoom-label').textContent='100%'");
   });
   if (process.env.ORDR_SMOKE_SCREENSHOT) {
@@ -85,12 +87,12 @@ function setupAutoUpdates(win) {
 app.whenReady().then(() => {
   ipcMain.handle('zoom:change', (event, action) => {
     const contents = event.sender;
-    const current = contents.getZoomFactor() / 1.4;
-    const next = action === 'reset' ? 1 : Math.min(1.6, Math.max(.6, current + (action === 'in' ? .1 : -.1)));
-    contents.setZoomFactor(Math.round(next * 1.4 * 100) / 100);
+    const current = contents.getZoomFactor() / baseZoomFactor;
+    const next = action === 'reset' ? defaultZoom : Math.min(1.6, Math.max(.6, current + (action === 'in' ? .1 : -.1)));
+    contents.setZoomFactor(Math.round(next * baseZoomFactor * 100) / 100);
     return Math.round(next * 10) / 10;
   });
-  ipcMain.handle('zoom:get', (event) => Math.round((event.sender.getZoomFactor() / 1.4) * 10) / 10);
+  ipcMain.handle('zoom:get', (event) => Math.round((event.sender.getZoomFactor() / baseZoomFactor) * 10) / 10);
   const win = createWindow();
   setupAutoUpdates(win);
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());

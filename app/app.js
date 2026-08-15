@@ -1,13 +1,13 @@
 const state = {
   units: [], allUnits: [], byId: new Map(), owned: new Map(), history: [], future: [],
-  excludedIds: new Set(), excludedLevels: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), collapsedCandidates: new Set(), collapsedUnitGroups: new Set(), activeSkill: '', upgradePathHistory: [],
+  excludedIds: new Set(), excludedLevels: new Set(), lockedUnitIds: new Set(), details: new Map(), collapsedCandidateGroups: new Set(), collapsedCandidates: new Set(), collapsedUnitGroups: new Set(), activeSkill: '', upgradePathHistory: [],
 };
 const skillNames={damageb:'공격력 버프',speedb:'공격속도 버프',sky:'공중 공격',sstun:'단일 스턴',slow:'이동속도 감소',shield:'방어력 감소',stun:'범위 스턴',boss:'보스 피해',berserk:'광폭화',splash:'스플래시',last:'끝딜',rangetlpd:'범위 체력 비례 피해',blink:'순간이동',armorbreak:'아머브레이크',single:'단일 피해',regen:'회복',ignore:'방어 무시',docking:'마법 피해 증폭',life:'생명력',bombup:'폭발 피해',mshield:'마법 방어력 감소',udelete:'유닛 삭제',rangellpd:'범위 최대 체력 피해',rangenlpd:'범위 현재 체력 피해',singlelost:'단일 잃은 체력 피해',prefmagic:'마딜',prefphysical:'물딜',prefstory:'스토리'};
 const preferenceFilterCodes=['prefmagic','prefphysical','prefstory'];
 const boardColumns = [
   ['흔함','안흔함'], ['특별함'], ['희귀함'], ['전설적인'],
-  ['히든조합','왜곡됨','랜덤전용'], ['변화된','세라핌','제한됨'],
-  ['초월함','신비함'], ['불멸의','영원한','기타'],
+  ['히든조합','왜곡됨','랜덤전용'], ['변화된','세라핌','제한됨','신비함'],
+  ['초월함'], ['불멸의','영원한','기타'],
 ];
 const levelOrder = [1,2,3,4,5,6,7,8,9,10,18,11,12,14,15,19,20,22];
 const levelNames = {1:'흔함',2:'안흔함',3:'특별함',4:'희귀함',5:'전설적인',6:'히든조합',7:'왜곡됨',8:'랜덤전용',9:'제한됨',10:'초월함',11:'불멸의',12:'영원한',14:'특수 재료',15:'특수함',18:'신비함',19:'기록지침',20:'연구소',22:'아이템'};
@@ -36,7 +36,12 @@ async function init() {
   state.allUnits.unshift({id:ORDRCore.WISP_ID,name:'흔함선택위습',group:'흔함',level:1,level_text:'흔함',mate_ids:[],skills:[],hotkey:'V',image:'assets/units/wisp.png'});
   state.units = state.allUnits.filter((u) => !excludedFromInput.has(u.id) && (u.group !== '기타' || ORDRCore.SPECIAL_IDS.has(u.id)) && boardColumns.flat().includes(u.group));
   state.byId = new Map(state.allUnits.map((u) => [u.id, u]));
+  resetDefaultLocks();
   renderSkillFilter(); renderExtraUnits(); bindEvents(); bindUpdater(); renderBoard(); renderExclusions(); renderAll(); updateZoomLabel(await window.ordrDesktop.zoom.get()); requestAnimationFrame(updateStickyLayout);
+}
+
+function resetDefaultLocks(){
+  state.lockedUnitIds=new Set(state.allUnits.filter((unit)=>unit.group==='랜덤전용').map((unit)=>Number(unit.id)));
 }
 
 function applyMapPatch(mapPatch) {
@@ -117,7 +122,10 @@ function bindUpdater(){
 }
 
 function snapshot() { state.history.push(new Map(state.owned)); state.future=[]; if (state.history.length > 50) state.history.shift(); }
+function isUnitLocked(id){return state.lockedUnitIds.has(Number(id));}
+function isUnitBlocked(id){return lockedMaterialsFor(id).size>0;}
 function changeCount(id, delta) {
+  if(isUnitBlocked(id))return;
   snapshot(); const next = Math.max(0, (state.owned.get(id) || 0) + delta);
   next ? state.owned.set(id, next) : state.owned.delete(id); renderAll();
 }
@@ -147,16 +155,19 @@ function renderBoard() {
       if (ORDRCore.SPECIAL_IDS.has(unit.id)) row.classList.add('special');
       const shortcut = unit.hotkey ? `<kbd title="${escapeHtml(unit.hotkey)}: +1 / Shift+${escapeHtml(unit.hotkey)}: -1">${escapeHtml(unit.hotkey)}</kbd>` : '';
       const canShowUpgrades=Number(unit.level)>=3&&!terminalUpgradeGroups.has(unit.group);
+      const canLock=unit.group==='기타'||unit.group==='랜덤전용';
       row.classList.toggle('no-upgrade-route',!canShowUpgrades);
-      row.innerHTML = `<span class="unit-progress-fill"></span><span class="unit-image"><img src="${unit.image}" alt=""></span><span class="unit-name"><em data-progress="${unit.id}"></em>${escapeHtml(unit.name)}${shortcut}<i class="special-dot" title="기타 재료 필요"></i></span><button class="unit-action combine" title="조합">✓</button><button class="unit-action subtract" title="빼기">−</button>${canShowUpgrades?`<button class="unit-action upgrade-route" title="상위 조합 보기" aria-label="${escapeHtml(unit.name)} 상위 조합 보기">↗</button>`:''}<strong data-count="${unit.id}">0</strong>`;
-      row.addEventListener('click', (event) => { if(event.target.closest('.unit-image,.unit-name'))changeCount(unit.id, 1); });
-      row.querySelector('.subtract').addEventListener('click', (e) => { e.stopPropagation(); changeCount(unit.id, -1); });
-      row.querySelector('.combine').addEventListener('click', (e) => { e.stopPropagation(); craftUnit(unit.id); });
+      row.classList.toggle('lockable',canLock);
+      row.innerHTML = `<span class="unit-progress-fill"></span><span class="unit-image"><img src="${unit.image}" alt=""></span><span class="unit-name"><em data-progress="${unit.id}"></em>${escapeHtml(unit.name)}${shortcut}<i class="special-dot" title="기타 재료 필요"></i><i class="locked-dependency" aria-hidden="true">🔒</i></span>${canLock?'':`<button class="unit-action combine" title="조합">✓</button>`}<button class="unit-action subtract" title="빼기">−</button>${canShowUpgrades?`<button class="unit-action upgrade-route" title="상위 조합 보기" aria-label="${escapeHtml(unit.name)} 상위 조합 보기">↗</button>`:''}${canLock?`<button class="unit-action unit-lock" title="${escapeHtml(unit.name)} 잠금" aria-label="${escapeHtml(unit.name)} 잠금" aria-pressed="false">🔓</button>`:''}<strong data-count="${unit.id}">0</strong>`;
+      row.addEventListener('click', (event) => { if(!isUnitBlocked(unit.id)&&event.target.closest('.unit-image,.unit-name'))changeCount(unit.id, 1); });
+      row.querySelector('.subtract').addEventListener('click', (e) => { e.stopPropagation(); if(!isUnitBlocked(unit.id))changeCount(unit.id, -1); });
+      row.querySelector('.combine')?.addEventListener('click', (e) => { e.stopPropagation(); craftUnit(unit.id); });
       if(canShowUpgrades)row.querySelector('.upgrade-route').addEventListener('click',(e)=>{e.stopPropagation();openUpgradePaths(unit);});
+      if(canLock)row.querySelector('.unit-lock').addEventListener('click',(e)=>{e.stopPropagation();const id=Number(unit.id),locked=!isUnitLocked(id);state.lockedUnitIds[locked?'add':'delete'](id);e.currentTarget.textContent=locked?'🔒':'🔓';e.currentTarget.setAttribute('aria-pressed',String(locked));e.currentTarget.title=locked?`${unit.name} 잠금 해제`:`${unit.name} 잠금`;e.currentTarget.setAttribute('aria-label',e.currentTarget.title);renderAll();});
       row.addEventListener('mouseenter',()=>showUnitTooltip(row,unit));
       row.addEventListener('mousemove',(event)=>positionUnitTooltip(event));
       row.addEventListener('mouseleave',hideUnitTooltip);
-      row.addEventListener('contextmenu', (e) => { e.preventDefault(); if(e.target.closest('.unit-image,.unit-name'))changeCount(unit.id, -1); });
+      row.addEventListener('contextmenu', (e) => { e.preventDefault(); if(!isUnitBlocked(unit.id)&&e.target.closest('.unit-image,.unit-name'))changeCount(unit.id, -1); });
       grid.append(row);
       }
       column.append(section);
@@ -394,6 +405,12 @@ function renderOwnedUpper(){
 }
 
 function currentCandidates(){return ORDRCore.buildCandidates(state.allUnits,state.owned,state.excludedIds,state.excludedLevels);}
+function lockedMaterialsFor(unitId,visited=new Set()){
+  const key=Number(unitId);if(visited.has(key))return new Set();visited.add(key);
+  const found=new Set(),unit=state.byId.get(key);
+  for(const materialId of unit?.mate_ids||[]){const id=Number(materialId);if(state.lockedUnitIds.has(id))found.add(id);for(const nested of lockedMaterialsFor(id,visited))found.add(nested);}
+  return found;
+}
 function updateUnitProgress(candidateItems){
   const candidates=new Map(candidateItems.map((candidate)=>[String(candidate.unit.id),candidate]));
   document.querySelectorAll('.unit').forEach((row)=>{
@@ -405,13 +422,24 @@ function updateUnitProgress(candidateItems){
     row.classList.toggle('progress-high',progress>=90&&progress<100);
     row.classList.toggle('progress-complete',progress===100);
     row.classList.toggle('needs-special',Boolean(candidate?.hasSpecial));
+    const unitLocked=isUnitLocked(row.dataset.id);
+    const lockedMaterials=lockedMaterialsFor(row.dataset.id),lockBlocked=lockedMaterials.size>0;
+    const lockedNames=[...lockedMaterials].map((id)=>state.byId.get(id)?.name).filter(Boolean);
+    row.classList.toggle('lock-blocked',lockBlocked);
+    row.classList.toggle('source-locked',unitLocked);
+    row.classList.toggle('is-locked',lockBlocked);
+    row.title=lockBlocked?`잠긴 재료: ${lockedNames.join(', ')}`:'';
+    const lockedDependency=row.querySelector('.locked-dependency');
+    if(lockedDependency)lockedDependency.title=lockBlocked?`잠긴 재료: ${lockedNames.join(', ')}`:'';
+    const lock=row.querySelector('.unit-lock');if(lock){const locked=isUnitLocked(row.dataset.id),unitName=state.byId.get(Number(row.dataset.id))?.name||'';lock.textContent=locked?'🔒':'🔓';lock.setAttribute('aria-pressed',String(locked));lock.title=locked?`${unitName} 잠금 해제`:`${unitName} 잠금`;lock.setAttribute('aria-label',lock.title);}
     const label=row.querySelector('[data-progress]'); if(label)label.textContent=candidate?`${progress}% `:'';
-    const combine=row.querySelector('.combine'); if(combine)combine.disabled=!candidate?.ready;
+    const subtract=row.querySelector('.subtract');if(subtract)subtract.disabled=lockBlocked;
+    const combine=row.querySelector('.combine'); if(combine){combine.disabled=!candidate?.ready||lockBlocked;combine.title=lockBlocked?`잠긴 재료: ${lockedNames.join(', ')}`:'조합';}
   });
 }
 function craftUnit(id){
   const candidate=currentCandidates().find((item)=>String(item.unit.id)===String(id));
-  if(!candidate?.ready)return;
+  if(!candidate?.ready||lockedMaterialsFor(id).size)return;
   snapshot(); if(!ORDRCore.craft(candidate,state.owned))state.history.pop(); renderAll();
 }
 
@@ -525,13 +553,15 @@ function renderCandidates(candidateItems) {
     const groupList=section.querySelector('.candidate-group-list');
     for(const c of candidates){
       const candidateId=String(c.unit.id); const candidateCollapsed=state.collapsedCandidates.has(candidateId);
-      const card=document.createElement('article'); card.className=`candidate ${c.ready?'ready':''} ${c.hasSpecial?'needs-special':''} ${candidateCollapsed?'collapsed':''}`;
+      const lockedIds=[...lockedMaterialsFor(c.unit.id)],lockedNames=lockedIds.map((id)=>state.byId.get(id)?.name).filter(Boolean),lockBlocked=lockedNames.length>0;
+      const card=document.createElement('article'); card.className=`candidate ${c.ready?'ready':''} ${c.hasSpecial?'needs-special':''} ${lockBlocked?'lock-blocked':''} ${candidateCollapsed?'collapsed':''}`;
+      if(lockBlocked)card.title=`잠긴 재료: ${lockedNames.join(', ')}`;
       const lacked=[...(c.lackedMaterials||new Map())];
       const materials=lacked.length?lacked.map(([id,quantity])=>{const material=state.byId.get(id);return `<span class="material missing ${ORDRCore.SPECIAL_IDS.has(id)?'special':''}">${escapeHtml(material?.name||`#${id}`)} <b>×${quantity}</b></span>`;}).join(''):'<span class="material fulfilled">재료 충족</span>';
       const wispUsage=c.wispUsed?`<span class="material wisp-used">선택 위습 <b>×${c.wispUsed}</b></span>`:'';
-      card.innerHTML=`<button type="button" class="candidate-top" aria-expanded="${!candidateCollapsed}" title="${escapeHtml(c.unit.name)} 접기/펼치기"><div class="candidate-title"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10l5-5 5 5"/></svg><h3>${escapeHtml(c.unit.name)}</h3></div><div class="progress"><strong>${c.progress}%</strong><span>${c.ready?'제작 가능':`부족 ${c.missingTotal}`}</span></div></button><div class="candidate-body">${c.hasSpecial?'<div class="special-alert">◆ 기타 재료 필요</div>':''}<div class="materials">${materials}${wispUsage}</div><button class="craft" ${c.ready?'':'disabled'}>조합 실행</button></div>`;
+      card.innerHTML=`<button type="button" class="candidate-top" aria-expanded="${!candidateCollapsed}" title="${escapeHtml(c.unit.name)} 접기/펼치기"><div class="candidate-title"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10l5-5 5 5"/></svg><h3>${escapeHtml(c.unit.name)}</h3></div><div class="progress"><strong>${c.progress}%</strong><span class="${lockBlocked?'lock-status':''}">${lockBlocked?'🔒 잠김':c.ready?'제작 가능':`부족 ${c.missingTotal}`}</span></div></button><div class="candidate-body">${lockBlocked?`<div class="lock-alert">🔒 잠긴 재료 · ${escapeHtml(lockedNames.join(', '))}</div>`:''}${c.hasSpecial?'<div class="special-alert">◆ 기타 재료 필요</div>':''}<div class="materials">${materials}${wispUsage}</div><button class="craft" ${c.ready&&!lockBlocked?'':'disabled'}>조합 실행</button></div>`;
       card.querySelector('.candidate-top').addEventListener('click',()=>{const next=card.classList.toggle('collapsed');state.collapsedCandidates[next?'add':'delete'](candidateId);card.querySelector('.candidate-top').setAttribute('aria-expanded',String(!next));});
-      card.querySelector('.craft').addEventListener('click',()=>{snapshot(); if(!ORDRCore.craft(c,state.owned))state.history.pop(); renderAll();}); groupList.append(card);
+      card.querySelector('.craft').addEventListener('click',()=>{if(lockBlocked)return;snapshot(); if(!ORDRCore.craft(c,state.owned))state.history.pop(); renderAll();}); groupList.append(card);
     }
     list.append(section);
   }
@@ -653,6 +683,7 @@ function bindEvents(){
   });
   $('#reset').onclick=()=>{
     if(state.owned.size){snapshot();state.owned.clear();}
+    resetDefaultLocks();
     if(state.activeSkill){state.activeSkill='';$('#skill-filter-options input[value=""]').checked=true;$('#skill-filter-current').textContent='전체';}
     renderAll();
   };
