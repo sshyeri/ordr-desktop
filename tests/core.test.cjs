@@ -13,6 +13,7 @@ for (const patch of mapPatchData.units) {
   const unit = allUnits.find((item) => item.id === patch.id);
   if (patch.name) unit.name = patch.name;
   if (patch.removeMateIds) unit.mate_ids = unit.mate_ids.filter((id) => !patch.removeMateIds.includes(id));
+  if (patch.addMateIds) unit.mate_ids = [...unit.mate_ids, ...patch.addMateIds];
   const skills = new Set(unit.skills || []);
   for (const skill of patch.removeSkills || []) skills.delete(skill);
   for (const skill of patch.addSkills || []) skills.add(skill);
@@ -36,10 +37,19 @@ test('ORDR 2.314 data patch updates recipe and skill metadata', () => {
   assert.equal(allById.get(283).skills.includes('docking'), false);
   assert.equal(allById.get(283).skills.includes('mshield'), true);
   assert.equal(allById.get(114).name, '우솝 임팩트 다이얼');
-  assert.equal(mapPatchData.units.length, 5);
+  assert.equal(mapPatchData.units.length, 6);
   assert.ok(mapPatchData.units.every((patch) => !patch.notes));
   assert.equal(mapPatchData.units.find((patch) => patch.id === 305).rangeStun, 1);
   assert.equal(mapPatchData.units.find((patch) => patch.id === 306).rangeStun, 1);
+});
+
+test('사보 초월함 recipe drops 바제스 희귀함/에이스/해적선 and requires 바제스 왜곡됨', () => {
+  const sabo = allById.get(216);
+  assert.equal(sabo.mate_ids.includes(83), false);
+  assert.equal(sabo.mate_ids.includes(25), false);
+  assert.equal(sabo.mate_ids.includes(168), false);
+  assert.equal(sabo.mate_ids.includes(366), true);
+  assert.deepEqual(sabo.mate_ids, [137, 160, 188, 366]);
 });
 
 test('reference range stun effects contain numeric values only', () => {

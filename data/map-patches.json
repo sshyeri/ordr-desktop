@@ -29,6 +29,18 @@
     {
       "id": 306,
       "rangeStun": 1
+    },
+    {
+      "id": 216,
+      "removeMateIds": [83, 25, 168],
+      "addMateIds": [366],
+      "replaceTooltipLines": [
+        {
+          "from": "바제스 (희귀함)",
+          "to": ["바제스 (왜곡됨)"]
+        }
+      ],
+      "removeTooltipLines": ["에이스 (안흔함)", "해적선 (히든조합)"]
     }
   ]
 }

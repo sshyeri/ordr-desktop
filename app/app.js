@@ -50,6 +50,7 @@ function applyMapPatch(mapPatch) {
     if (!unit) continue;
     if (patch.name) unit.name = patch.name;
     if (patch.removeMateIds?.length) unit.mate_ids = (unit.mate_ids || []).filter((id) => !patch.removeMateIds.includes(id));
+    if (patch.addMateIds?.length) unit.mate_ids = [...(unit.mate_ids || []), ...patch.addMateIds];
     if (patch.removeSkills?.length || patch.addSkills?.length) {
       const skills = new Set(unit.skills || []);
       for (const skill of patch.removeSkills || []) skills.delete(skill);
